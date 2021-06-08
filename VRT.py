@@ -22,10 +22,10 @@ RC - [2 0 0 2]
 Things to add:
     
     1. Make seperate functions for noncpherent transmission from Fung (use only I2EM for now) aka make crosspol terms nonzero for transmittivity
-    2. Particle size distribution - add function to calculate sigma and cpr for different D_max
+
     3. VRT for Magellan emissivity
     4. Correct way of calculating CPR
-    5. Change particle size fuckup
+
     6. EDEinv is messed up
     
 Radar CS cs backscatter coefficient: 
@@ -609,8 +609,10 @@ class VRT:
         
         D_int = np.diag(d_int)
         return D_int   
+    
+            
    
-    def ExtinctionMatrixSimp (self, scatterer, theta, phi, pol):
+    def ExtinctionMatrixSimp(self, scatterer, theta, phi, pol):
         
         """
         Calculates a diagonal Extinction matrix for randomly oriented spheres
@@ -636,20 +638,43 @@ class VRT:
         
         scat.psd_integrator.geometries = (geom,)
         scat.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
-
+        
         SA_dyad = scat.get_S()
         
         # # use S_vv for vertical pol and S_hh for horizontal pol
         if pol == self.polV: 
-            ext_cs = self.l1.inclusions.n0 * (4 * np.pi / self.k) * SA_dyad[0,0].imag
-            sca_cs = self.l1.inclusions.n0 * 4 * np.pi * (np.abs(SA_dyad[0,0]) ** 2 + np.abs(SA_dyad[0,1]) ** 2)
+            ext_cs = (4 * np.pi / self.k) * SA_dyad[0,0].imag
+#             sca_cs = self.l1.inclusions.n0 * 4 * np.pi * (np.abs(SA_dyad[0,0]) ** 2 + np.abs(SA_dyad[0,1]) ** 2)
+            
         elif pol == self.polH: 
-            ext_cs = self.l1.inclusions.n0 * (4 * np.pi / self.k) * SA_dyad[1,1].imag
-            sca_cs = self.l1.inclusions.n0 * 4 * np.pi * (np.abs(SA_dyad[1,0]) ** 2 + np.abs(SA_dyad[1,1]) ** 2)
+            ext_cs = (4 * np.pi / self.k) * SA_dyad[1,1].imag
+#             sca_cs = self.l1.inclusions.n0 * 4 * np.pi * (np.abs(SA_dyad[1,0]) ** 2 + np.abs(SA_dyad[1,1]) ** 2)
             
         # # make a diagonal matrix
         K_e = np.zeros((4,4))
         np.fill_diagonal(K_e, ext_cs)
+        
+        print("My Ext CS = ", ext_cs)
+        print("My Ext CS mult by n0 = ", ext_cs * self.l1.inclusions.n0)
+        
+        def ScatteringCS(theta, phi):
+#             (scat.phi, scat.thet) = (np.rad2deg(phi), np.rad2deg(theta))
+            geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
+            np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
+            scat.set_geometry(geom,)
+
+            scat.psd_integrator.geometries = (geom,)
+            scat.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
+            Z = scat.get_Z()
+            if pol == self.polV:            
+                scat_int = Z[0,0] + Z[0,1]
+            elif pol == self.polH: 
+                scat_int = Z[0,0] - Z[0,1]
+
+            return scat_int * np.sin(theta)
+        
+        sca_cs, err = scipy.integrate.dblquad(ScatteringCS, 0, 2*np.pi, lambda x: 0.0, lambda x: np.pi)
+        
    
         if pol == self.polH: cond = True
         elif pol == self.polV: cond = False
@@ -753,18 +778,18 @@ class VRT:
         
         M_bed = np.linalg.multi_dot([self.T10_coh, E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus, self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh])
         
-        np.set_printoptions(formatter={'complex_kind': '{:.4f}'.format},suppress = True)
-        pol = self.polH
-        print("Bed scattering")
-        print("Polarization = ", pol)
-        print("Transmitted through = ", self.intensity_breakdown(self.T01_coh, pol))
-#         print(self.T01)
-        print("Attenuated to bottom = ", self.intensity_breakdown(np.linalg.multi_dot([E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
-#         print(np.linalg.multi_dot([E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus]))
-        print("Reflected at bottom = ", self.intensity_breakdown(np.linalg.multi_dot([self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
-        print("Attenuated back to top = ", self.intensity_breakdown(np.linalg.multi_dot([E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus, self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
-#         print(np.linalg.multi_dot([E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus]))
-        print("Transmitted back out = ", self.intensity_breakdown(np.linalg.multi_dot([self.T10_coh, E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus, self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
+#         np.set_printoptions(formatter={'complex_kind': '{:.4f}'.format},suppress = True)
+#         pol = self.polH
+#         print("Bed scattering")
+#         print("Polarization = ", pol)
+#         print("Transmitted through = ", self.intensity_breakdown(self.T01_coh, pol))
+# #         print(self.T01)
+#         print("Attenuated to bottom = ", self.intensity_breakdown(np.linalg.multi_dot([E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
+# #         print(np.linalg.multi_dot([E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus]))
+#         print("Reflected at bottom = ", self.intensity_breakdown(np.linalg.multi_dot([self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
+#         print("Attenuated back to top = ", self.intensity_breakdown(np.linalg.multi_dot([E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus, self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
+# #         print(np.linalg.multi_dot([E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus]))
+#         print("Transmitted back out = ", self.intensity_breakdown(np.linalg.multi_dot([self.T10_coh, E_plus, self.D(beta_plus, self.l2.theta_s), Einv_plus, self.R12, E_minus, self.D(beta_minus, self.l2.theta_i), Einv_minus, self.T01_coh]), pol))
         
         return M_bed
                 

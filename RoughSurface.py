@@ -33,6 +33,23 @@ import FresnelCoefficients as Fresnel
 debug=False
 
 class RoughSurface:
+     """
+    Rough surface (/interface) class.
+    
+    A class describing a non-smooth diffusely scattering 
+    interface between two media.
+    
+    Attributes:
+    wavelength: wavelength of incident radiation
+    eps1: complex dielectric permittivity of upper medium
+    eps2: complex dielectric permittivity of lower medium
+    rms_ht: root mean square height of the rough interface
+    corr_len: correlation length of the rough interface (try to set equal to wavelength)
+    autocorr_fn: autocorrelation function for the rough interface."exponential" or "gaussian"
+    theta_i: incidence angle in radians
+    theta_s: scattering angle in radians (equal to incidence angle for backscattering)
+
+    """
     
     def __init__(self, wavelength, eps1 = 1, eps2 = 3, rms_ht = 0.001, corr_len = 12.6e-2, autocorr_fn = "exponential", theta_i = np.deg2rad(0.), theta_s = np.deg2rad(0)):
         
@@ -91,6 +108,15 @@ class RoughSurface:
         self.Rvh = (self.Rv - self.Rh) / 2
         
     def ReflectionCoefficients(self):
+        """
+        Compute the R-transition reflection coefficients
+        
+        Returns:
+        Rv: Reflection coefficient for VV polarization
+        Rh: Reflection coefficient for HH polarization
+        Rp_v: R-transitioned reflection coefficient for VV polarization 
+        Rp_h: R-transitioned reflection coefficient for HH polarization 
+        """
         
         # # Fresnel Coefficients at incidence angle theta_i
         Rh,_,_,_ = Fresnel.FresnelH(self.eps1, self.eps2, self.theta_i)
@@ -112,6 +138,15 @@ class RoughSurface:
   
         
     def gamma_factor(self, R0):
+        """
+        Compute gamma value used in R-transition
+        
+        Args:
+        R0: Reflection coefficient at nadir incidence
+        
+        Returns:
+        gamma_factor: gamma value used for R-transitioning reflection coefficients
+        """
 
         # # check if using n is okay
 
@@ -137,7 +172,15 @@ class RoughSurface:
         return gamma_factor
         
     def Kirchhoff_Fields(self):
-        " Calculates f_pq "
+        """
+        Compute Kirchhoff fields for single scattering
+        
+        Returns:
+        fvv: Co-polarization field for VV 
+        fhh: Co-polarization field for HH  
+        fvh: Cross-polarization field for VH (=0 for single scattering)
+        fhv: Cross-polarization field for VH (=0 for single scattering)
+        """
     
         # # Equations (22) and (23) in Wu and Chen, 2004
 #         fvv = 2 * self.Rv / np.cos(self.theta_i)
@@ -157,7 +200,15 @@ class RoughSurface:
         return fvv, fhh, fvh, fhv
     
     def Kirchhoff_Fields_trans(self):
-        " Calculates f_pq "
+        """
+        Compute Kirchhoff fields for transmission
+        
+        Returns:
+        ftvv: Co-polarization field for VV 
+        fthh: Co-polarization field for HH  
+        ftvh: Cross-polarization field for VH (=0 for single scattering)
+        fthv: Cross-polarization field for VH (=0 for single scattering)
+        """
     
         thi = self.theta_i 
         tht = self.theta_t
@@ -295,6 +346,17 @@ class RoughSurface:
 
     
     def I_qp_copol(self, n):
+        """
+        Compute I_qp for copolarized scattering (HH and VV)
+        to use in the formula for sigma0
+        
+        Args:
+        n: value for summation upto
+        
+        Returns:
+        Ivv, Ihh: copolarized I_qp values for use in the final sigma0 formula
+        
+        """
         
         fvv, fhh, fvh, fhv = self.Kirchhoff_Fields()      
 
@@ -321,6 +383,17 @@ class RoughSurface:
     
     
     def I_qp_copol_trans(self, n):
+        """
+        Compute I_qp for copolarized transmission (HH and VV)
+        to use in the formula for sigma0
+        
+        Args:
+        n: value for summation upto
+        
+        Returns:
+        Ivv, Ihh: copolarized I_qp values for use in the final sigma0 formula
+        
+        """
         
         ftvv, fthh, ftvh, fthv = self.Kirchhoff_Fields_trans()      
 
@@ -338,7 +411,11 @@ class RoughSurface:
         
     def ComplementaryFields(self, updown, method, u, v, theta):
         """
-        Calculates Fvv and Fhh 
+        Compute complementary fields for single scattering
+        
+        Returns:
+        Fvv: Co-polarization field for VV 
+        Fhh: Co-polarization field for HH  
         """ 
         
         # # Equations (24) and (25) in Wu and Chen, 2004
@@ -377,6 +454,14 @@ class RoughSurface:
         return Fvv, Fhh
     
     def ComplementaryFields_trans(self, method, u, v, theta):
+        """
+        Compute complementary fields for transmission
+        
+        Returns:
+        Ftvv: Co-polarization field for VV 
+        Fthh: Co-polarization field for HH  
+        """ 
+        
         eps_r = self.eps2 / self.eps1
 
         q1 = self.k * np.sqrt(self.eps1 - np.sin(self.theta_i)**2)
@@ -454,8 +539,17 @@ class RoughSurface:
 
     def Wn(self, n, wvnb):
         """
+        Compute W(n) for single scattering
         W(n) is the the spectral power density aka Fouier transform of the nth power of the surface correlation function
         Current formulae from Fung 1992, Appendix 2B, page 117 to 119
+        
+        Args:
+        n: value upto summation
+        wvnb: wavenumber
+        
+        Returns:
+        wn: spectral power density
+        rss: roughness spectrum
         """
         # # currently has exponential and gaussian. expand to include 2d gaussian, 2d exponential and 1.5 power (eqs 4a-4f in Brogioni et al. 2010)
               
@@ -472,6 +566,20 @@ class RoughSurface:
         return wn, rss
     
     def Wn_multi_scat(self, n, r, phi):
+        """
+        Compute W(n) for multiple scattering
+        W(n) is the the spectral power density aka Fouier transform of the nth power of the surface correlation function
+        Current formulae from Fung 1992, Appendix 2B, page 117 to 119
+        
+        Args:
+        n: value upto summation
+        r: ??? integrate over
+        phi: difference in azimuth angle of incident and scattered wave; integrate over phi
+        
+        Returns:
+        wn: spectral power density
+        rss: roughness spectrum
+        """
         
         kl = self.k * self.corrlen
         
@@ -487,6 +595,12 @@ class RoughSurface:
         return wn, rss
     
     def get_n(self):
+        """
+        Compute value of n used in summation
+        
+        Returns:
+        Ts: n
+        """
         error = 1e8
 
         Ts = 1
@@ -497,6 +611,12 @@ class RoughSurface:
         return Ts
     
     def Shadow_fn(self, mode="multi"):
+        """
+        Compute shadowing function 
+        
+        Returns:
+        shdw: value of shadow function
+        """
         
         # # From Fung textbook
         n = np.arange(1,self.n+1)
@@ -515,6 +635,13 @@ class RoughSurface:
         return shdw
     
     def Shadow_fn_multi(self, r, phi):
+        
+        """
+        Compute shadowing function 
+        
+        Returns:
+        shdw: value of shadow function
+        """
         # # From Ulaby code
         n = np.arange(1,self.n+1)
         Wn, rss = self.Wn(n, self.wvnb_scat)
@@ -528,6 +655,19 @@ class RoughSurface:
         
     
     def C_functions(self, updown, method, q):
+        """
+        Compute C function values for single scattering
+        Uses the most recent Fung (2002) formulae
+        
+        Args:
+        updown: +1 for field in the upper medium; 
+                -1 for fields in the lower medium
+        method: 1 for incident; 2 for scattered
+        q: k^2 - u^2 - v^2
+        
+        Returns:
+        C1, C2, C3, C4, C5, (C6 =0)
+        """
 
         qi = updown * self.qi
         qs = updown * self.qs
@@ -565,6 +705,15 @@ class RoughSurface:
         return C1, C2, C3, C4, C5
     
     def C_functions_trans(self, method):
+        """
+        Compute C function values for transmission
+       
+        Args:
+        method: 1 for incident; 2 for transmitted
+        
+        Returns:
+        Ct1, Ct2, Ct3, Ct4, Ct5, Ct6
+        """
         
         thi = self.theta_i 
         tht = self.theta_t
@@ -601,6 +750,12 @@ class RoughSurface:
         Also equations A.29 to A.34 in Fung 1994 paper
         rewrite in terms of r=k*sin(theta_i) and phi
         Looks like everything gets normalized to k
+        
+        Args:
+        r, phi: variables to integrate over
+        
+        Returns:
+        B1, B2, B3, B4, B5, B6
         """
         
         denom = self.k * np.cos(self.theta_i)
