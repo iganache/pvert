@@ -48,7 +48,12 @@ from scipy.special import gamma
 
 import matlab.engine
 
-from pytmatrix import tmatrix, orientation, scatter
+# from pytmatrix import tmatrix, orientation, scatter
+# from pytmatrix.psd import PSDIntegrator, GammaPSD, ExponentialPSD
+
+import tmatrix
+import scatter
+from pytmatrix import orientation
 from pytmatrix.psd import PSDIntegrator, GammaPSD, ExponentialPSD
 
 import radar_inst as radar
@@ -395,7 +400,7 @@ class VRT:
         # # CURRENTLY DOESN'T WORK. NEEDS FIXING. 
         
         Args:
-        psd: particla size distribution (instance of pytmatrix.psd class)
+        psd: particle size distribution (instance of pytmatrix.psd class)
         dist_type: Type of distribution. Curren options:"Exponential" or Gamma"
         nf: nf or Nw paramter use din the pytmatrix.psd class 
         Lambda: shape paramter for exponential distribution
@@ -457,7 +462,7 @@ class VRT:
         mu = 1
         N = l1.inclusions.nw   
 #         N = 1
-        scatterer.psd_integrator = PSDIntegrator(D_max = D_max)
+        scatterer.psd_integrator = PSDIntegrator(D_max = D_max, num_points=100)
         scatterer.psd = ExponentialPSD(N0=N, Lambda=Lambda)
 #         scatterer.psd = GammaPSD(D0 = D0, Nw = N, mu=mu)
 
@@ -485,16 +490,15 @@ class VRT:
         Returns:
         A 4x4 phase matrix for the spheroidal inclusions/scatterers in the upper layer
         """
-        
-        scat = scatterer
+
         geom = (np.rad2deg(theta_i), np.rad2deg(theta_s), np.rad2deg(phi_i), np.rad2deg(phi_s),
                 np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
-        scat.set_geometry(geom)
+        scatterer.set_geometry(geom)
 
-        scat.psd_integrator.geometries = (geom,)
-        scat.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
+        scatterer.psd_integrator.geometries = (geom,)
+        scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
      
-        P = self.l1.inclusions.n0 * scat.get_Z()
+        P = self.l1.inclusions.n0 * scatterer.get_Z()
         
         # # rotating the phase matrix because it seems like the right thing to do
         # # based on Jin 2007, Campbell pr book, Ishimaru 1984 and Mischenko 1996
@@ -523,16 +527,15 @@ class VRT:
         E: matrix whose columns are the eigenvectors of the extinction matrix
         Einv: inverse of the matrix E
         """
-        
-        scat = scatterer
+
         geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
                 np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
-        scat.set_geometry(geom)
+        scatterer.set_geometry(geom)
        
-        scat.psd_integrator.geometries = (geom,)
-        scat.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
+        scatterer.psd_integrator.geometries = (geom,)
+        scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
       
-        SA_dyad = scat.get_S()          # # fvv and fhh appear equal?
+        SA_dyad = scatterer.get_S()          # # fvv and fhh appear equal?
 
         # # Tsang (1985) - eq. 5 in page 139 - attenuation rate matrix
         
@@ -611,36 +614,18 @@ class VRT:
         return D_int   
     
             
-   
-    def ExtinctionMatrixSimp(self, scatterer, theta, phi, pol):
-        
-        """
-        Calculates a diagonal Extinction matrix for randomly oriented spheres
-        in the forward scattering direction using the scattering matrix
-        
-        Args:
-        scatterer: instance of class pytmatrix.Scatterer 
-        theta: incidence angle in radians
-        phi: azimuth angle for incident direction in radians
-        pol: polarization orientation "H" or "V"
-        
-        Returns:
-        K_e: A 4x4 diagonal matrix whose diagonal values are given by the extinction cross section ext_cs
-        ext_cs: extinction cross section 
-        sca_cs: scattering cross section 
-        ssa: single scatter albedo (scat_cs/ext_cs ?)
-        """
-        
-        scat = scatterer
+    def ExtinctionCS(self, scatterer, theta, phi, pol):
+
         geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
                 np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
-        scat.set_geometry(geom)
+
+        scatterer.set_geometry(geom)
+
+        scatterer.psd_integrator.geometries = (geom,)
+        scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
         
-        scat.psd_integrator.geometries = (geom,)
-        scat.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
-        
-        SA_dyad = scat.get_S()
-        
+        SA_dyad = scatterer.get_S()
+
         # # use S_vv for vertical pol and S_hh for horizontal pol
         if pol == self.polV: 
             ext_cs = (4 * np.pi / self.k) * SA_dyad[0,0].imag
@@ -648,43 +633,51 @@ class VRT:
             
         elif pol == self.polH: 
             ext_cs = (4 * np.pi / self.k) * SA_dyad[1,1].imag
+            print("Ext CS:  ", ext_cs, scatter.ext_xsect(scatterer, h_pol = True))
+            
 #             sca_cs = self.l1.inclusions.n0 * 4 * np.pi * (np.abs(SA_dyad[1,0]) ** 2 + np.abs(SA_dyad[1,1]) ** 2)
             
         # # make a diagonal matrix
         K_e = np.zeros((4,4))
         np.fill_diagonal(K_e, ext_cs)
         
-        print("My Ext CS = ", ext_cs)
-        print("My Ext CS mult by n0 = ", ext_cs * self.l1.inclusions.n0)
+        return ext_cs, K_e
+    
+    def ScatterCS(self, scatterer, theta, phi, pol):
         
-        def ScatteringCS(theta, phi):
-#             (scat.phi, scat.thet) = (np.rad2deg(phi), np.rad2deg(theta))
-            geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
+        geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
             np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
-            scat.set_geometry(geom,)
 
-            scat.psd_integrator.geometries = (geom,)
-            scat.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
-            Z = scat.get_Z()
+        scatterer.set_geometry(geom,)
+        scatterer.psd_integrator.geometries = (geom,)
+        scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
+        ssa = scatter.ssa(scatterer, True)
+        print("ssa = ", ssa)
+        
+        def ScatterInt(th, ph):
+
+#             (scatterer.phi, scatterer.thet) = (np.rad2deg(ph), np.rad2deg(th))
+            
+            geom = (np.rad2deg(theta), np.rad2deg(th), np.rad2deg(phi), np.rad2deg(ph),
+            np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
+
+            scatterer.set_geometry(geom,)
+            scatterer.psd_integrator.geometries = (geom,)
+            scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
+            
+            Z = scatterer.get_Z()
             if pol == self.polV:            
                 scat_int = Z[0,0] + Z[0,1]
             elif pol == self.polH: 
                 scat_int = Z[0,0] - Z[0,1]
+                
 
             return scat_int * np.sin(theta)
-        
-        sca_cs, err = scipy.integrate.dblquad(ScatteringCS, 0, 2*np.pi, lambda x: 0.0, lambda x: np.pi)
-        
-   
-        if pol == self.polH: cond = True
-        elif pol == self.polV: cond = False
-        scat.psd_integrator.geometries = (geom,)
-        scat.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
-        ssa = scatter.ssa(scat, h_pol = cond)
 
-        return K_e, ext_cs, sca_cs, ssa
+        scat_cs, err = scipy.integrate.dblquad(ScatterInt, 0, 2*np.pi, lambda x: 0.0, lambda x: np.pi)        # first set of limits for phi and second set of limits for theta
         
-    
+        return scat_cs, err
+        
     
     def sigma2sigma0(self, sigma):
         
@@ -1201,9 +1194,10 @@ class VRT:
 
         
         sigma0_hh, sigma0_vv = self.sigma2sigma0([sigma_hh, sigma_vv])
-#         e_v, e_h = self.RT0_emission(tm)
-        e_v = 0
-        e_h = 0
+
+        e_v, e_h = self.RT0_emission(tm)
+#         e_v = 0
+#         e_h = 0
 
         
         return [sigma0_vv, sigma0_hh, cpr, e_v, e_h]
@@ -1218,7 +1212,7 @@ class VRT:
 #         return svv1, svv2, shh1, shh2, stvv1, sthh1, stvv2, sthh2
         
 
-    def RT0_emission(self, scat):
+    def RT0_emission(self, scatterer):
         """
         Primary function that executes the oth order VRT emission model
         
@@ -1235,21 +1229,35 @@ class VRT:
         self.setGeometricOptics()
         self.setLayerProperties()
         
-        beta, E, Einv = self.ExtinctionMatrix(scat, self.l2.theta_s, self.phi_s)
+        beta, E, Einv = self.ExtinctionMatrix(scatterer, self.l2.theta_s, self.phi_s)
         trans = np.linalg.multi_dot([E, self.D(beta, self.l2.theta_s), Einv])
 
-        print("SSA calculation")
-        
-        _, ke_v, ks_v, ssa_v = self.ExtinctionMatrixSimp(scat, self.theta_s, self.phi_s, self.polV)
-        _, ke_h, ks_h, ssa_h = self.ExtinctionMatrixSimp(scat, self.theta_s, self.phi_s, self.polH)
-        
-        print("pyt albedo = ", ssa_h, ssa_v)
-        
-        
-        ssa_h = ks_h/ke_h
-        ssa_v = ks_v/ke_v
 
-        print("My albedo = ", ssa_h, ssa_v)
+        # # resetting scatterer geometry after extinction matrix calculation
+        geom = (np.rad2deg(np.pi - self.theta_s), np.rad2deg(np.pi - self.theta_s), np.rad2deg(self.phi_s), np.rad2deg(self.phi_s),
+                np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
+        scatterer.set_geometry(geom,)
+        scatterer.psd_integrator.geometries = (geom,)
+        scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
+#         ke_v, _ = self.ExtinctionCS(scat, self.theta_s, self.phi_s, self.polV)
+#         ke_h, _ = self.ExtinctionCS(scat, self.theta_s, self.phi_s, self.polH)
+        
+#         ks_v, _ = self.ScatterCS(scat, self.theta_s, self.phi_s, self.polV)
+#         ks_h, _ = self.ScatterCS(scat, self.theta_s, self.phi_s, self.polH)
+        
+        ke_v = scatter.ext_xsect(scatterer, h_pol=False)
+        ke_h = scatter.ext_xsect(scatterer, h_pol=True)
+        
+        ks_v = scatter.sca_xsect(scatterer, h_pol=False)
+        ks_h = scatter.sca_xsect(scatterer, h_pol=True)
+        
+        ssa_v = scatter.ssa(scatterer, False)
+        ssa_h = scatter.ssa(scatterer, True)
+                
+#         ssa_h = ks_h/ke_h
+#         ssa_v = ks_v/ke_v
+
+        print("SSA = ", ssa_h, ssa_v)
         
         a_h = 1-ssa_h
         a_v = 1-ssa_v
