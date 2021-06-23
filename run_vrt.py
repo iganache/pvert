@@ -29,7 +29,7 @@ def main():
 
 #     value = np.linspace(10,80,2)                # incidence angle
 #     value = np.linspace(5e-2, 20, 10)           # depth
-    epsreal = np.linspace(3,6,10)              # permittivity variables
+    epsreal = np.linspace(4,6,5)              # permittivity variables
     value = epsreal + 1j*0.003                  # permittivity variables
 #     epsreal = 5
 #     epsimg = 1j* np.array([.003,.03,.3])

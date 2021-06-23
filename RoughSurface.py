@@ -33,7 +33,7 @@ import FresnelCoefficients as Fresnel
 debug=False
 
 class RoughSurface:
-     """
+    """
     Rough surface (/interface) class.
     
     A class describing a non-smooth diffusely scattering 

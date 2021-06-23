@@ -40,7 +40,7 @@ class Layers:
             self.ri = self.eps ** 0.5
             self.a = radius
             self.vol = (4/3) * pi * self.a**3              # # only for spherical scatterers                        
-            self.Dmax = .04
+            self.Dmax = .03
             self.nw = 100
             self.alpha = np.deg2rad(alpha)
             self.beta = np.deg2rad(beta)
