@@ -85,12 +85,12 @@ class VRTmodel:
         
 #         print(results)
         
-        for i in range(self.n):
-            self.sigmavv[:,i] = results[i][0]
-            self.sigmahh[:,i] = results[i][1]
-            self.cpr[:,i]= results[i][2]  
-            self.e_v[i] = results[i][3] 
-            self.e_h[i] = results[i][4] 
+#         for i in range(self.n):
+#             self.sigmavv[:,i] = results[i][0]
+#             self.sigmahh[:,i] = results[i][1]
+#             self.cpr[:,i]= results[i][2]  
+#             self.e_v[i] = results[i][3] 
+#             self.e_h[i] = results[i][4] 
             
             # # only if returning Fresnel coefficients
 #             self.refh[i] = results[i][3]
@@ -103,7 +103,7 @@ class VRTmodel:
 #             self.th[i] = results[i][9]
 #             self.tv[i] = results[i][10]
             
-        # # only for backscatter plots
+        # only for backscatter plots
 #         for i in range(self.n):
 #             self.svv1[i] = results[i][0]
 #             self.svv2[i] = results[i][1]
@@ -114,6 +114,7 @@ class VRTmodel:
 #             self.svvt2[i] = results[i][6]
 #             self.shht2[i] = results[i][7]
             
+        return results
             
     
     def VRT_singleprocess(self):
@@ -227,8 +228,9 @@ class VRTmodel:
         xlabel = self.variable
         x = self.values
 
-        sur_bsc = 10*np.log10(np.array([self.svv1, self.svv2, self.shh1, self.shh2, self.svvt1, self.shht1, self.svvt2, self.shht2]))
+#         sur_bsc = 10*np.log10(np.array([self.svv1, self.svv2, self.shh1, self.shh2, self.svvt1, self.shht1, self.svvt2, self.shht2]))
 #         sur_bsc = np.array([self.svv1, self.svv2, self.shh1, self.shh2, self.svvt1, self.shht1])
+        sur_bsc = 10*np.log10(np.array([self.svv1, self.svv2, self.shh1, self.shh2]))
         ### Update font sizes
         ### Update font sizes
         params = {'axes.labelsize': 20,
@@ -239,8 +241,9 @@ class VRTmodel:
 #         colors = ["#1b9e77","#d95f02", "#7570b3", "#e7298a", "#66a61e", "#e6ab02", "#a6761d", "#666666"]
         colors = ["red","red", "blue", "blue", "green", "green", "pink", "pink"]
         linestyles = ['-.', ':', '-.', ':', '-.', ':', '-.', ':']
+        labels = ['VV_Ulaby', 'VV', 'HH_Ulaby', 'HH']
 #         labels = ['VV_Ulaby', 'VV', 'HH_Ulaby', 'HH', 'VV_trans', 'HH_trans']
-        labels = ['VV_nc', 'VV_c', 'HH_nc', 'HH_c', 'VV_t_nc', 'VV_t_c', 'HH_t_nc', 'HH_t_c']
+#         labels = ['VV_nc', 'VV_c', 'HH_nc', 'HH_c', 'VV_t_nc', 'VV_t_c', 'HH_t_nc', 'HH_t_c']
         
         fig, ax = plt.subplots(nrows=1, ncols=1)
         self.plotBSC(ax, x, sur_bsc, None, colors, linestyles, labels, xlabel)
@@ -283,4 +286,6 @@ def plotCSV(infile):
     
     
     self.plotOutput(x, xlabel, sigmavv, sigmahh, cpr)
+    
+
   

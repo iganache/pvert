@@ -27,9 +27,9 @@ def main():
     # # 'Number concentration of scatterers', 'Maximum scatterer size', 'Axis ratio of scatterers', 'Surface roughness', 'Subsurface roughness'
     var_name = 'Layer permittivity'
 
-#     value = np.linspace(10,80,2)                # incidence angle
+#     value = np.linspace(10,80,20)                # incidence angle
 #     value = np.linspace(5e-2, 20, 10)           # depth
-    epsreal = np.linspace(4,6,5)              # permittivity variables
+    epsreal = np.linspace(4,10,10)              # permittivity variables
     value = epsreal + 1j*0.003                  # permittivity variables
 #     epsreal = 5
 #     epsimg = 1j* np.array([.003,.03,.3])
@@ -57,13 +57,15 @@ def main():
     # # multithread
     vrtmodel = VRTmodel(vrt, var_name, value)
     vrtmodel.VRT_multiprocess()
-    vrtmodel.plotOutput()
+#     vrtmodel.plotOutput()
 #     vrtmodel.plotFresnelCoef()
-#     vrtmodel.plotSurfaceBSC()
+    vrtmodel.plotSurfaceBSC()
 #     vrtmodel.writeCSV("vrt_depth.csv")
 #    plotCSV("vrt_depth.csv")
 
-
+    
+    # # VRT module multiprocess pool
+    vrtmodel.VRT_multiprocess(input_dict, ['surface', 'volume'])
 
 if __name__ == '__main__':
     main()   

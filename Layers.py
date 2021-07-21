@@ -40,7 +40,7 @@ class Layers:
             self.ri = self.eps ** 0.5
             self.a = radius
             self.vol = (4/3) * pi * self.a**3              # # only for spherical scatterers                        
-            self.Dmax = .03
+            self.Dmax = .1
             self.nw = 100
             self.alpha = np.deg2rad(alpha)
             self.beta = np.deg2rad(beta)
@@ -58,14 +58,14 @@ class Layers:
                       emrough = 0.002, corr_length = 12.6e-2)
         
         ash = Layers(depth = 5, 
-                     eps = complex(2.7, 0.003), 
+                     eps = complex(4, 0.003), 
                      emrough = 0.01, 
                      corr_length = 12.6e-2)
         
         ash.inclusions = ash.inclusions(eps = complex(6,0.01), 
                                         radius = 1e-2, 
                                         axisratio = 1.26/0.63, 
-                                        alpha=45., beta=45.)
+                                        alpha=0., beta=0.)
         
         return [atm, ash, rock]
     

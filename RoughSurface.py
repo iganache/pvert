@@ -256,7 +256,6 @@ class RoughSurface:
         sigmavv: Backscatter coefficient for VV polarization 
         sigmahh: Backscatter coefficient for HH polarization 
         """
-        
         n = np.arange(1,self.n+1)
         Wn, rss = self.Wn(n, self.wvnb_scat)
 
@@ -604,6 +603,8 @@ class RoughSurface:
         error = 1e8
 
         Ts = 1
+        
+        # # add condition for Ts< 150
         while error > 1e-3:
             Ts += 1
             error = ((self.k * self.sigma) ** 2 * ( np.cos(self.theta_i)+np.cos(self.theta_s) ) **2) ** Ts / factorial(Ts)
