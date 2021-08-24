@@ -459,10 +459,9 @@ class VRT:
         K43 = -K34
         
         
-        K_e = 2 * np.pi * n0 / self.k * \
-                         np.matrix([[(S[0,0]).imag, 0, -M[0,1].real, -M[0,1].imag], 
-                         [0, -2*M[0,0].imag, -M[1,0].real, -M[1,0].imag],
-                         [-2*M[1,0].real, -2*M[0,1].real, -M[0,0].real-M[1,1].real, M[0,0].imag-M[1,1].imag]
+        K_e = np.matrix([[-2*M[0,0].real, 0, -M[0,1].real, -M[0,1].imag], \
+                         [0, -2*M[1,1].real, -M[1,0].real, M[1,0].imag], \
+                         [-2*M[1,0].real, -2*M[0,1].real, -M[0,0].real-M[1,1].real, M[0,0].imag-M[1,1].imag], \
                          [2*M[1,0].imag, -2*M[0,1].imag, -M[0,0].imag+M[1,1].imag, -M[0,0].real-M[1,1].real]])
     
     def ExtinctionMatrix(self, scatterer, val, n0, theta, phi):
@@ -523,17 +522,7 @@ class VRT:
         K2 = self.k - ((1j/2) * (M[0,0] + M[1,1] - r))
        
         beta = np.array([2*K1.imag, 1j*np.conj(K2) - 1j*K1, 1j*np.conj(K1) - 1j*K2, 2*K2.imag])
-        
-        K_e = np.matrix([[-2*M[0,0].real, 0, -M[0,1].real, -M[0,1].imag], \
-                         [0, -2*M[1,1].real, -M[1,0].real, M[1,0].imag], \
-                         [-2*M[1,0].real, -2*M[0,1].real, -M[0,0].real-M[1,1].real, M[0,0].imag-M[1,1].imag], \
-                         [2*M[1,0].imag, -2*M[0,1].imag, -M[0,0].imag+M[1,1].imag, -M[0,0].real-M[1,1].real]])
-        
-        w, V = np.linalg.eig(K_e)
-        
-        print("Foldy eigen = ", beta)
-        print("python eigen = ", w)
-       
+      
         return beta        
     
     def StokesEigenVectors(self, M):
