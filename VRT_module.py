@@ -94,13 +94,6 @@ class VRT:
         self.atm = layers[0]
         self.l1= layers[1]
         self.l2 = layers[2]
-       
-     
-        # Final backscatter
-        self.sigma = {}
-        
-        self.setGeometricOptics()
-        self.setLayerProperties()
  
     
     def setLayerProperties(self):
@@ -153,6 +146,48 @@ class VRT:
 #         self.l1.theta_t = self.TransmissionAngle(self.theta_i,self.atm.eps, self.l1.eps)
         self.l2.theta_i = self.l1.theta_t
         self.l2.theta_s = self.l2.theta_i
+        
+    def sigma2sigma0(self, sigma):
+        
+        """
+        Computes (unlogarithmic) radar cross section from backscatter coeffiecient
+        
+        Args: 
+        sigma: An array or single value of radar cross-section
+        
+        Returns:
+        sigma0: An array or single value of backscatter coeffiecient
+        """
+        try:
+            if len(sigma) > 1:
+                sigma = np.array(sigma)
+        except:
+            pass
+
+        sigma0 = 10 * np.log10(sigma)   
+        return sigma0
+        
+    
+    def sigma02sigma(self, sigma0):
+        
+        """
+        Computes (logarithmic) backscatter coeffiecient from radar cross section
+        
+        Args: 
+        sigma0: An array or single value of backscatter coeffiecient
+        
+        Returns:
+        sigma: An array or single value of radar cross-section        
+        """
+        
+        try:
+            if len(sigma0) > 1:
+                sigma0 = np.array(sigma0)
+        except:
+            pass
+
+        sigma = 10 ** (sigma0/10)         
+        return sigma
         
     def Mueller2sigma(self, M):
         # # multiply by 4*pi*cos theta if needed
@@ -210,7 +245,6 @@ class VRT:
         """
         mu1 = np.cos(thetai)
         n = np.sqrt(eps2/eps1)
-        
         mu2 = np.sqrt(1.0 - ((1.0 - mu1**2) / n**2)).real
         thetat = np.arccos(mu2)
         return thetat
@@ -237,21 +271,10 @@ class VRT:
 
         mu1 = np.cos(thetai_rad)
         n = np.sqrt(eps2/eps1)
-
         mu2 = np.sqrt(1.0 - (1.0 - mu1**2) / n**2).real
-        
-       
+
         refh,transh,rh,th = Fresnel.FresnelH(eps1, eps2, thetai_rad)
         refv,transv,rv,tv = Fresnel.FresnelV(eps1, eps2, thetai_rad)
-
-#         # # adapted from line 78, func fresnel_transmission matrix 
-#         # # in SMRT's core/fresnel.py
-#         tvh2 = (n*mu2/mu1).real * (transv * np.conj(transh)).real                      
-#         thv2 = (n*mu2/mu1).real * (transh * np.conj(transv)).real 
-        
-#         tvh = np.sqrt(transv * np.conj(transh))
-#         thv = np.sqrt(transh * np.conj(transv))
-# #         thv = -tvh
 
         K_i = self.k * np.sqrt(eps1.real) * mu1
         K_t = self.k * np.sqrt(eps2 - ((1 - mu1**2) * eps1)).real
@@ -267,7 +290,6 @@ class VRT:
     
         # # Mueller matrix convention
         T = 0.5 * np.matrix([[tv+th, tv-th, 0., 0.], [tv-th, tv+th, 0., 0.], [0., 0., 2*(tv*th)**0.5, 0.], [0., 0., 0., 2*(tv*th)**0.5]])
-        
         T_coh = loss_factor * T
         
         return T_coh
@@ -414,19 +436,9 @@ class VRT:
         scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
         
         P = n0 * scatterer.get_Z()
-        
-        # # rotating the phase matrix because it seems like the right thing to do
-        # # based on Jin 2007, Campbell pr book, Ishimaru 1984 and Mischenko 1996
-        
-#         if poltype == "lin":
-#             B = np.matrix([[0.5, 0.5, 0., 0.], [0.5, -0.5, 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]])  
-#         elif poltype == "circ":
-#             B = 0.5 * np.matrix([[0, 1.0, 1j, 0.], [1., 0., 0., 1.], [1., 0., 0., -1.], [0, 1.0, -1j, 0.]])  
-#         P = np.linalg.multi_dot([B,P,np.linalg.inv(B)])
-
         return P
 
-    def ExtinctionMatrixCoeff(self, scatterer, val, n0, theta, phi):
+    def ExtinctionMatrixMish(self, scatterer, val, n0, theta, phi):
         geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
                 scatterer.alpha, scatterer.beta)
         scatterer.set_geometry(geom)
@@ -434,19 +446,14 @@ class VRT:
         scatterer.psd_integrator.geometries = (geom,)
         scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
 
-        S = scatterer.get_S()          # # fvv and fhh appear equal?
+        SA_dyad = S = scatterer.get_S()          # # fvv and fhh appear equal?
 
         # # Tsang (1985) - eq. 5 in page 139 - attenuation rate matrix
         
         M = (1j * 2 * np.pi * n0 / self.k) * S
         
-        K_e = np.matrix([[-2*M[0,0].real, 0, -M[0,1].real, -M[0,1].imag], 
-                         [0, -2*M[0,0].imag, -M[1,0].real, -M[1,0].imag],
-                         [-2*M[1,0].real, -2*M[0,1].real, -M[0,0].real-M[1,1].real, M[0,0].imag-M[1,1].imag]
-                         [2*M[1,0].imag, -2*M[0,1].imag, -M[0,0].imag+M[1,1].imag, -M[0,0].real-M[1,1].real]])
         
-        
-        # # Mischenko formula
+        # # Mischenko 2002 formula
         K11 = K22 = K33 = K44 = 2 * np.pi * n0 / self.k * (S[0,0] + S[1,1]).imag
         K12 = K21 = 2 * np.pi * n0 / self.k * (S[0,0] - S[1,1]).imag
         K13 = K31 =  -2 * np.pi * n0 / self.k * (S[0,1] + S[1,0]).imag
@@ -458,11 +465,17 @@ class VRT:
         K34 = 2 * np.pi * n0 / self.k * (S[1,1] - S[0,0]).real
         K43 = -K34
         
+        K_e = np.matrix([[K11, K12, K13, K14], [K21, K22, K23, K24], [K31, K32, K33, K34], [K41, K42, K43, K44]])
         
-        K_e = np.matrix([[-2*M[0,0].real, 0, -M[0,1].real, -M[0,1].imag], \
-                         [0, -2*M[1,1].real, -M[1,0].real, M[1,0].imag], \
-                         [-2*M[1,0].real, -2*M[0,1].real, -M[0,0].real-M[1,1].real, M[0,0].imag-M[1,1].imag], \
-                         [2*M[1,0].imag, -2*M[0,1].imag, -M[0,0].imag+M[1,1].imag, -M[0,0].real-M[1,1].real]])
+# #         # # Tsang 1985 formula
+#         K_e = np.matrix([[-2*M[0,0].real, 0, -M[0,1].real, -M[0,1].imag], \
+#                          [0, -2*M[1,1].real, -M[1,0].real, M[1,0].imag], \
+#                          [-2*M[1,0].real, -2*M[0,1].real, -M[0,0].real-M[1,1].real, M[0,0].imag-M[1,1].imag], \
+#                          [2*M[1,0].imag, -2*M[0,1].imag, -M[0,0].imag+M[1,1].imag, -M[0,0].real-M[1,1].real]])
+  
+        beta, E = np.linalg.eig(K_e)
+        Einv = np.linalg.inv(E)
+        return beta, E, Einv
     
     def ExtinctionMatrix(self, scatterer, val, n0, theta, phi):
         
@@ -488,15 +501,13 @@ class VRT:
         scatterer.psd_integrator.geometries = (geom,)
         scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
 
-        SA_dyad = scatterer.get_S()          # # fvv and fhh appear equal?
+        SA_dyad = scatterer.get_S()          # # fvv and fhh appear equal?     
 
         # # Tsang (1985) - eq. 5 in page 139 - attenuation rate matrix
         
         M = (1j * 2 * np.pi * n0 / self.k) * SA_dyad
 #         M = 1j * 2 * np.pi / self.l1.k * SA_dyad
 
-        # # Background absorption ulaby equation 11.47
-        k_a_medium = 2 * self.k * np.sqrt(val["eps1"]).imag
 
         beta = self.StokesEigenValues(M)
         E = self.StokesEigenVectors(M)
@@ -520,9 +531,8 @@ class VRT:
         r = np.sqrt((M[0,0] - M[1,1])**2 + 4*M[1,0]*M[0,1])
         K1 = self.k - ((1j/2) * (M[0,0] + M[1,1] + r))
         K2 = self.k - ((1j/2) * (M[0,0] + M[1,1] - r))
-       
-        beta = np.array([2*K1.imag, 1j*np.conj(K2) - 1j*K1, 1j*np.conj(K1) - 1j*K2, 2*K2.imag])
-      
+        
+        beta = np.array([2*K1.imag, 1j*np.conj(K2) - 1j*K1, 1j*np.conj(K1) - 1j*K2, 2*K2.imag])     
         return beta        
     
     def StokesEigenVectors(self, M):
@@ -547,25 +557,13 @@ class VRT:
                         [np.abs(b1)**2, b1, np.conj(b1), 1],\
                         [2*b1.real, 1+(b1*np.conj(b2)), 1+(b2*np.conj(b1)), 2*b2.real], \
                         [-2*b1.imag, -1j * (1-(b1*np.conj(b2))), 1j * (1-(b2*np.conj(b1))), 2*b2.imag]])
-    
         return E
            
    
     def D(self, beta, theta, d, kab = 0):
         D = np.diag(np.exp((beta+kab) * - d/ np.cos(theta)))
         return D
-    
-    
-    def integD(self, beta, theta, depth, limits=[0,0]):
-        
-        d_int = np.ones_like(beta)
-        for i in range(len(beta)):
-            d = lambda z: np.exp((beta[i] * (z + depth) / np.cos(theta)))
-            d_int[i], err = scipy.integrate.quad(d, limits[0], limits[1])
-        
-        D_int = np.diag(d_int)
-        return D_int   
-    
+
             
     def ExtinctionCS(self, scatterer, n0, theta, phi, pol=None):
         
@@ -631,51 +629,9 @@ class VRT:
         scat_cs, err = scipy.integrate.dblquad(ScatterInt, 0, 2*np.pi, lambda x: 0.0, lambda x: np.pi)        # first set of limits for phi and second set of limits for theta
         
         return scat_cs, err
-        
     
-    def sigma2sigma0(self, sigma):
-        
-        """
-        Computes (unlogarithmic) radar cross section from backscatter coeffiecient
-        
-        Args: 
-        sigma: An array or single value of radar cross-section
-        
-        Returns:
-        sigma0: An array or single value of backscatter coeffiecient
-        """
-        try:
-            if len(sigma) > 1:
-                sigma = np.array(sigma)
-        except:
-            pass
-
-        sigma0 = 10 * np.log10(sigma)   
-        return sigma0
-        
     
-    def sigma02sigma(self, sigma0):
-        
-        """
-        Computes (logarithmic) backscatter coeffiecient from radar cross section
-        
-        Args: 
-        sigma0: An array or single value of backscatter coeffiecient
-        
-        Returns:
-        sigma: An array or single value of radar cross-section        
-        """
-        
-        try:
-            if len(sigma0) > 1:
-                sigma0 = np.array(sigma0)
-        except:
-            pass
-
-        sigma = 10 ** (sigma0/10)         
-        return sigma
-    
-    def integrate(self, beta, theta, matrix, limits=[0.,0.], depth=0., kab=0.):
+    def integrate_withM(self, beta, theta, matrix, limits=[0.,0.], depth=0., kab=0.):
         n = len(beta)
         matrix_int = np.zeros_like(matrix)
         
@@ -685,7 +641,7 @@ class VRT:
                 matrix_int[i,j], err = scipy.integrate.quad(d, limits[0], limits[1])
         return matrix_int
     
-    def integrate_new(self, beta, theta, limits=[0.,0.], depth=0., kab=0.):
+    def integrate(self, beta, theta, limits=[0.,0.], depth=0., kab=0.):
         n = len(beta)
         D = np.zeros((n,n))
         
@@ -694,26 +650,7 @@ class VRT:
                 if i == j: 
                     d = lambda z: np.exp(((beta[i]+kab) * (z + depth) / np.cos(theta))) 
                     D[i,j], err = scipy.integrate.quad(d, limits[0], limits[1])
-        return D
-        
-     
-    def integtest(self, beta, theta, limits=[0.,0.], depth=0.):
-        n = len(beta)
-        beta_int = np.zeros((n,n))
-        
-        for i in range(n):
-            d = lambda z: np.exp((beta[i] * (z + depth) / np.cos(theta))) 
-            beta_int[i,i], err = scipy.integrate.quad(d, limits[0], limits[1])
-        return beta_int
-        
-    def Mueller_surf(self):
-        """
-        Compute the real-valued 4x4 Mueller matrix for scattering 
-        from the atmosphere - first layer interface.
-        """
-        ## only returns incoherent scattered power in the backscatter direction
-        ## coherent/specular return is zero in the backscatter direction
-        return self.R01        
+        return D    
     
     def Mueller_bed(self, val, thetai_rad, thetat_rad, k_a_medium, T01_coh, T10_coh, R12, scat, n0=0):
         """
@@ -729,8 +666,8 @@ class VRT:
         """
         
         # # keeping only the term with the the two coherent transmission matrice (term 2 of C2 in Fa et al. 2011)
-        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_i)
-        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_s)
+        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrixMish(scat, val, n0, np.pi - thetat_rad, self.phi_i)
+        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_s)
         M_bed = np.linalg.multi_dot([T10_coh, E_plus, self.D(beta_plus, thetat_rad, val["d"], k_a_medium), Einv_plus, R12, E_minus, self.D(beta_minus, thetat_rad, val["d"], k_a_medium), Einv_minus, T01_coh])
         
         return M_bed
@@ -751,13 +688,13 @@ class VRT:
         """
         
         # # Extinction due to scatterers
-        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_i)
-        beta_plus1, E_plus1, Einv_plus1 = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_i)
-        beta_plus2, E_plus2, Einv_plus2 = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_s)
+        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrixMish(scat, val, n0, np.pi - thetat_rad, self.phi_i)
+        beta_plus1, E_plus1, Einv_plus1 = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_i)
+        beta_plus2, E_plus2, Einv_plus2 = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_s)
         
         Dminus = self.D(beta_minus, thetat_rad, -self.l1.d, kab = k_a_medium)
-        Dplus1 = self.integrate_new(beta_plus1, thetat_rad, [-val["d"], 0], kab = k_a_medium, depth = -self.l1.d)
-        Dplus2 = self.integrate_new(beta_plus2, thetat_rad, [-val["d"], 0], kab = k_a_medium)
+        Dplus1 = self.integrate(beta_plus1, thetat_rad, [-val["d"], 0], kab = k_a_medium, depth = -self.l1.d)
+        Dplus2 = self.integrate(beta_plus2, thetat_rad, [-val["d"], 0], kab = k_a_medium)
         
         EDEminus = np.linalg.multi_dot([E_minus, Dminus, Einv_minus])
         EDEplus1 = np.linalg.multi_dot([E_plus1, Dplus1, Einv_plus1])
@@ -767,12 +704,6 @@ class VRT:
         P = self.PhaseMatrix(scat, val, n0, np.pi/2 - thetat_rad, self.phi_i, np.pi/2 - thetat_rad, self.phi_s)
         
         M_bedvol =  np.linalg.multi_dot([T10_coh / np.cos(thetai_rad), EDEplus2, P, EDEplus1, R12_coh, EDEminus, T01_coh])
-
-#         M_bedvol = np.linalg.multi_dot([Einv_plus1, self.R12_coh, E_minus, self.D(beta_minus, self.l2.theta_i, self.l1.d), Einv_minus, self.T01_coh])
-#         M_bedvol = self.integrate(beta_plus1, self.l2.theta_s, M_bedvol, [-self.l1.d, 0], - self.l1.d)
-#         M_bedvol = np.linalg.multi_dot([Einv_plus2 , self.PhaseMatrix(scat, np.pi/2 - self.l2.theta_s, self.phi_i, np.pi/2 - self.l2.theta_s, self.phi_i, poltype),E_plus1, M_bedvol])
-#         M_bedvol = self.integrate(beta_plus2, self.l2.theta_s, M_bedvol, [-self.l1.d, 0])
-#         M_bedvol = np.linalg.multi_dot([self.T10_coh / np.cos(self.l2.theta_s), E_plus2, M_bedvol])
                
         return M_bedvol
     
@@ -790,12 +721,12 @@ class VRT:
         M_bed: A 4x4 real-valued Mueller matrix
         """
         # # Extinction due to scatterers
-        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_s)
-        beta_minus1, E_minus1, Einv_minus1 = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_i)
-        beta_minus2, E_minus2, Einv_minus2 = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_s)
+        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_s)
+        beta_minus1, E_minus1, Einv_minus1 = self.ExtinctionMatrixMish(scat, val, n0, np.pi - thetat_rad, self.phi_i)
+        beta_minus2, E_minus2, Einv_minus2 = self.ExtinctionMatrixMish(scat, val, n0, np.pi - thetat_rad, self.phi_s)
         
-        Dminus1 = self.integrate_new(beta_minus1, thetat_rad, [-val["d"], 0], kab = k_a_medium)
-        Dminus2 = self.integrate_new(beta_minus2, thetat_rad, [-val["d"], 0], kab = k_a_medium, depth = -self.l1.d)
+        Dminus1 = self.integrate(beta_minus1, thetat_rad, [-val["d"], 0], kab = k_a_medium)
+        Dminus2 = self.integrate(beta_minus2, thetat_rad, [-val["d"], 0], kab = k_a_medium, depth = -self.l1.d)
         Dplus = self.D(beta_plus, thetat_rad, -self.l1.d, kab = k_a_medium)
         
         EDEminus1 = np.linalg.multi_dot([E_minus1, Dminus1, Einv_minus1])
@@ -806,12 +737,6 @@ class VRT:
         P = self.PhaseMatrix(scat, val, n0, np.pi - (np.pi/2 - thetat_rad), self.phi_i, np.pi - (np.pi/2 - thetat_rad), self.phi_s)
        
         M_volbed =  np.linalg.multi_dot([T10_coh / np.cos(thetai_rad), EDEplus, R12_coh, EDEminus2, P, EDEminus1, T01_coh])
-                                      
-#         M_volbed = np.linalg.multi_dot([Einv_minus1, self.T01_coh])
-#         M_volbed = self.integrate(beta_minus1, self.l2.theta_i, M_volbed, [-self.l1.d, 0])
-#         M_volbed = np.linalg.multi_dot([Einv_minus2, self.PhaseMatrix(scat, np.pi - (np.pi/2 - self.l1.theta_t), self.phi_i, np.pi - (np.pi/2 - self.l1.theta_t), self.phi_i,  poltype), E_minus1, M_volbed])
-#         M_volbed = self.integrate(beta_minus2, self.l2.theta_i, M_volbed, [-self.l1.d, 0], -self.l1.d)
-#         M_volbed = np.linalg.multi_dot([self.T10_coh, E_plus, self.D(beta_plus, self.l2.theta_s, self.l1.d), Einv_plus, self.R12_coh / np.cos(self.l2.theta_s), E_minus2 , M_volbed])
         
         return M_volbed
     
@@ -829,17 +754,17 @@ class VRT:
         M_bed: A 4x4 real-valued Mueller matrix
         """
         # # Extinction due to scatterers
-        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_i)
-        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_s)
+        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrixMish(scat, val, n0, np.pi - thetat_rad, self.phi_i)
+        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_s)
 #         if val["abyc"] == 1:
 #             k_eminus, K_Eminus = self.ExtinctionCS(scat, n0, np.pi - thetat_rad, self.phi_i)
 #             k_eplus, K_Eplus = self.ExtinctionCS(scat, n0, thetat_rad, self.phi_s)
-#             EDEminus = self.integrate_new(np.diagonal(K_Eminus), thetat_rad, [-val["d"], 0], k_a_medium)
-#             EDEplus = self.integrate_new(np.diagonal(K_Eplus), thetat_rad, [-val["d"], 0], k_a_medium)
+#             EDEminus = self.integrate(np.diagonal(K_Eminus), thetat_rad, [-val["d"], 0], k_a_medium)
+#             EDEplus = self.integrate(np.diagonal(K_Eplus), thetat_rad, [-val["d"], 0], k_a_medium)
             
 #         else:
-        Dminus = self.integrate_new(beta_minus, thetat_rad, [-val["d"], 0], kab = k_a_medium)
-        Dplus = self.integrate_new(beta_plus, thetat_rad, [-val["d"], 0], kab = k_a_medium)
+        Dminus = self.integrate(beta_minus, thetat_rad, [-val["d"], 0], kab = k_a_medium)
+        Dplus = self.integrate(beta_plus, thetat_rad, [-val["d"], 0], kab = k_a_medium)
         EDEminus = np.linalg.multi_dot([E_minus, Dminus, Einv_minus])
         EDEplus = np.linalg.multi_dot([E_plus, Dplus, Einv_plus])
 
