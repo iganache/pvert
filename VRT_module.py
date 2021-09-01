@@ -70,7 +70,7 @@ class VRT:
     """
     
     
-    def __init__(self, layers):
+    def __init__(self):
 
         # Constants
         self.wavelength = radar.wavelength                     # wavelength in meters
@@ -82,70 +82,16 @@ class VRT:
         
         # Polarization information
         self.polV = radar.polarization1
-        self.polH = radar.polarization2
-        
-        ## Magellan incidence angles ranged from 16 - 45 deg
-        ## Incident and scattered azimuth angles are the same for monostatic radar
-       
-        self.theta_i = np.deg2rad(radar.incidence_angle)    
-#         self.theta_s = self.theta_i
-       
-        # Layers
-        self.atm = layers[0]
-        self.l1= layers[1]
-        self.l2 = layers[2]
- 
-    
-    def setLayerProperties(self):
-        
-        """
-        Calculate any physical and EM properties of any of the layers from the inputs.
-        Properties calculated: (1) Refractive index.
-        """
-       
-        for layer in [self.atm, self.l1, self.l2]:
-            layer.ri = layer.eps ** 0.5
-            try:
-                layer.inclusions.ri = (layer.inclusions.eps/layer.eps) ** 0.5
-                
-            except:
-                pass
-        
-#         # # set upper surface
-#         self.i01 = RoughSurface(self.wavelength, self.atm.eps, self.l1.eps, self.l1.upperks, self.l1.corrlen, autocorr_fn = "exponential", theta_i = self.l1.theta_i, theta_s = self.l1.theta_s)
-#         self.i10 = RoughSurface(self.wavelength, self.l1.eps, self.atm.eps, self.l1.upperks, self.l1.corrlen, autocorr_fn = "exponential", theta_i = self.l2.theta_s, theta_s = self.l1.theta_s)
-        
-        
-#         # # calculate coherent transmittivity matrices
-#         self.T01_coh = self.CoherentTransMatrix(self.atm, self.l1, self.l1.theta_i)
-#         self.T10_coh = self.CoherentTransMatrix(self.l1, self.atm, self.l2.theta_s)
-
-#         # # set bottom surface
-#         if self.l2 != None:
-#             self.i12 = RoughSurface(self.wavelength, self.l1.eps, self.l2.eps, self.l2.upperks, self.l2.corrlen, autocorr_fn = "exponential", theta_i = self.l2.theta_i, theta_s = self.l2.theta_s)
-            
+        self.polH = radar.polarization2           
     
     def setGeometricOptics(self):
         
         """
         Sets the viewing geometry properties (mainly angles) for each layer.
         """
-        
-        # # set theta and phi for backscatter
-        self.theta_s = self.theta_i
-        #theta_s = np.deg2rad(25)
         self.phi_i = np.deg2rad(0)
         self.phi_s = np.pi - self.phi_i
-        
-        self.l1.k = self.k * np.sqrt(self.l1.eps.real) * np.cos(self.theta_i)
-        
-        # # Incident, scattering and transmission angles at the top boundary of layer l_i
-        
-        self.l1.theta_i = self.theta_i
-        self.l1.theta_s = self.theta_i
-#         self.l1.theta_t = self.TransmissionAngle(self.theta_i,self.atm.eps, self.l1.eps)
-        self.l2.theta_i = self.l1.theta_t
-        self.l2.theta_s = self.l2.theta_i
+
         
     def sigma2sigma0(self, sigma):
         
@@ -188,9 +134,15 @@ class VRT:
 
         sigma = 10 ** (sigma0/10)         
         return sigma
+    
+    def Muellermod2sigma(self, M):
+        svv = 4 * np.pi * M[0,0]
+        shh = 4 * np.pi * M[1,1]
+        return svv, shh
         
     def Mueller2sigma(self, M):
         # # multiply by 4*pi*cos theta if needed
+        # # division by a factor of 4 or 2?
         svv = 4 * np.pi * (M[0,0] + 2*M[0,1] + M[1,1]) 
         shh = 4 * np.pi * (M[0,0] - 2*M[0,1] + M[1,1]) 
         return svv, shh
@@ -215,12 +167,16 @@ class VRT:
         
         # # check m33 and m34 and check if s12 or s21 is negative
 #         m33 = 2*shv
-        m33 = 2* ((s11*s22)**0.5 + s12**0.5)
+        m33 = 2* (s11*s22)**0.5
         m34 = 0
 #         m44 = 2*shv
-        m44 = 2* ((s11*s22)**0.5 + s12**0.5)
+        m44 = 2* (s11*s22)**0.5
         
         M = np.array([[m11,m12,m13,m14], [m12,m22,m23,m24], [m13, m23, m33, m34], [-m14, -m24, -m34, m44]]) / 4
+        # Modified Mueller materix form
+        B = np.matrix([[0.5, 0.5, 0., 0.], [0.5, -0.5, 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]) 
+        M = B*M*np.linalg.inv(B)
+        
         return M
     
     def Mueller2cpr(self,M):
@@ -228,7 +184,7 @@ class VRT:
         return cpr
     
     def sigma2cpr(self, svv, shh, svh):
-        cpr = (svv+shh+4*svh)/(svv+shh)       
+        cpr = (svv+shh+2*np.sqrt(svv*shh))/(svv+shh-2*np.sqrt(svv*shh))       
         return cpr       
         
     
@@ -286,10 +242,15 @@ class VRT:
         m22 = np.abs(transh) ** 2
         m33 = (transv * np.conj(transh)).real
         m43 = (transv * np.conj(transh)).imag
-#         T = np.matrix([[m11, 0., 0., 0.], [0., m22, 0., 0.], [0., 0., m33 * mu2/mu1, -m43* mu2/mu1], [0., 0., m43* mu2/mu1, m33* mu2/mu1]])
-    
+
         # # Mueller matrix convention
         T = 0.5 * np.matrix([[tv+th, tv-th, 0., 0.], [tv-th, tv+th, 0., 0.], [0., 0., 2*(tv*th)**0.5, 0.], [0., 0., 0., 2*(tv*th)**0.5]])
+        
+        
+        # Modified Mueller materix form
+        B = np.matrix([[0.5, 0.5, 0., 0.], [0.5, -0.5, 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]) 
+        T = B*T*np.linalg.inv(B)
+        
         T_coh = loss_factor * T
         
         return T_coh
@@ -331,6 +292,10 @@ class VRT:
         
         # Mueller matrix convention
         R = 0.5 * np.matrix([[rv+rh, rv-rh, 0., 0.], [rv-rh, rv+rh, 0., 0.], [0., 0., 2*(rv*rh)**0.5, 0.], [0., 0., 0., 2*(rv*rh)**0.5]])
+        
+        # Modified Mueller materix form
+        B = np.matrix([[0.5, 0.5, 0., 0.], [0.5, -0.5, 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]) 
+        R = B*R*np.linalg.inv(B)
 
         R_coh = loss_factor * R
 
@@ -436,6 +401,11 @@ class VRT:
         scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=False)
         
         P = n0 * scatterer.get_Z()
+        
+        # Modified Mueller materix form
+#         B = np.matrix([[0.5, 0.5, 0., 0.], [0.5, -0.5, 0., 0.], [0., 0., 1., 0.], [0., 0., 0., 1.]]) 
+#         P = B*P*np.linalg.inv(B)
+
         return P
 
     def ExtinctionMatrixMish(self, scatterer, val, n0, theta, phi):
@@ -466,7 +436,6 @@ class VRT:
         K43 = -K34
         
         K_e = np.matrix([[K11, K12, K13, K14], [K21, K22, K23, K24], [K31, K32, K33, K34], [K41, K42, K43, K44]])
-        
 # #         # # Tsang 1985 formula
 #         K_e = np.matrix([[-2*M[0,0].real, 0, -M[0,1].real, -M[0,1].imag], \
 #                          [0, -2*M[1,1].real, -M[1,0].real, M[1,0].imag], \
@@ -604,7 +573,6 @@ class VRT:
         scatterer.psd_integrator.geometries = (geom,)
         scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
         ssa = scatter.ssa(scatterer, True)
-        print("ssa = ", ssa)
         
         def ScatterInt(th, ph):
 
@@ -666,8 +634,8 @@ class VRT:
         """
         
         # # keeping only the term with the the two coherent transmission matrice (term 2 of C2 in Fa et al. 2011)
-        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrixMish(scat, val, n0, np.pi - thetat_rad, self.phi_i)
-        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_s)
+        beta_minus, E_minus, Einv_minus = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_i)
+        beta_plus, E_plus, Einv_plus = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_s)
         M_bed = np.linalg.multi_dot([T10_coh, E_plus, self.D(beta_plus, thetat_rad, val["d"], k_a_medium), Einv_plus, R12, E_minus, self.D(beta_minus, thetat_rad, val["d"], k_a_medium), Einv_minus, T01_coh])
         
         return M_bed
@@ -692,7 +660,7 @@ class VRT:
         beta_plus1, E_plus1, Einv_plus1 = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_i)
         beta_plus2, E_plus2, Einv_plus2 = self.ExtinctionMatrixMish(scat, val, n0, thetat_rad, self.phi_s)
         
-        Dminus = self.D(beta_minus, thetat_rad, -self.l1.d, kab = k_a_medium)
+        Dminus = self.D(beta_minus, thetat_rad, val["d"], kab = k_a_medium)
         Dplus1 = self.integrate(beta_plus1, thetat_rad, [-val["d"], 0], kab = k_a_medium, depth = -self.l1.d)
         Dplus2 = self.integrate(beta_plus2, thetat_rad, [-val["d"], 0], kab = k_a_medium)
         
@@ -727,7 +695,7 @@ class VRT:
         
         Dminus1 = self.integrate(beta_minus1, thetat_rad, [-val["d"], 0], kab = k_a_medium)
         Dminus2 = self.integrate(beta_minus2, thetat_rad, [-val["d"], 0], kab = k_a_medium, depth = -self.l1.d)
-        Dplus = self.D(beta_plus, thetat_rad, -self.l1.d, kab = k_a_medium)
+        Dplus = self.D(beta_plus, thetat_rad, val["d"], kab = k_a_medium)
         
         EDEminus1 = np.linalg.multi_dot([E_minus1, Dminus1, Einv_minus1])
         EDEminus2 = np.linalg.multi_dot([E_minus2, Dminus2, Einv_minus2])
@@ -785,70 +753,8 @@ class VRT:
             sigma = 4 * np.pi * np.cos(self.theta_s) * (I_s[0,0]/ I_i[0,0])
             
         return sigma
-               
-        
-    def Mueller_lin(self, tm, pol):
-        """
-        Compute the Mueller matrix solution for VRT for linear polarization (H and V)
-        
-        Args:
-        tm: instance of class pytmatrix.Scatterer 
-        pol: polarization orientation "H" or "V" 
-        
-        Returns:
-        sigma0: A 5x1 array containing the backscatter coefficient associated with 
-                (0) Total BS, (1) Surface BS, (2) Subsurface BS, (3) Volume BS, and
-                (4) Voume-subsurface BS
-        DLP:  5x1 array containing the degree of linear polarization
-        """
-        
-        if pol == self.polH:
-            I_i = np.array([0., 1., 0., 0.]).reshape((4,1))
-            idx = 1
-        elif pol == self.polV:
-            I_i = np.array([1., 0., 0., 0.]).reshape((4,1))
-            idx = 0
 
-        poltype = "lin"
-        B =np.matrix([[0.5, 0.5, 0., 0.], [0.5, -0.5, 0., 0.], [0.,0.,1.,0.],[0.,0.,0.,1.]])          # # modified stokes matrix rotation
-        Binv = np.linalg.inv(B)
-        # # surface backscatter
-        M_surf = self.R01
-        
-        [M_bed, M_vol, M_bedvol, M_volbed] = [self.Mueller_bed(tm, poltype), self.Mueller_vol(tm, poltype), self.Mueller_bedvol(tm, poltype), self.Mueller_volbed(tm, poltype)]
-        M_total = M_surf + M_bed + M_vol + M_bedvol + M_volbed
-        M = np.array([M_total, M_surf, M_bed, M_vol, M_bedvol+M_volbed]) 
-#         I_s = np.array([np.linalg.multi_dot([B,M_total,Binv,I_i]), \
-#                         np.linalg.multi_dot([B,M_surf,Binv,I_i]), \
-#                         np.linalg.multi_dot([B,M_bed,Binv,I_i]), \
-#                         np.linalg.multi_dot([B,M_vol,Binv,I_i]), \
-#                         np.linalg.multi_dot([B,M_bedvol+M_volbed,Binv,I_i])])
-
-#         # Backscattering cross-section not normalized to area
-#         if pol == self.polV: 
-#             sigma_0 = 4 * np.pi * np.cos(self.theta_s) * I_s[:,0,0]
-#         elif pol == self.polH: 
-#             sigma_0 = 4 * np.pi * np.cos(self.theta_s) * I_s[:,1,0]
-            
-        I_s = np.zeros((len(M), 4, 1))
-        for i in range(len(M)):
-            M[i] = np.linalg.multi_dot([B, M[i], np.linalg.inv(Binv)])
-            I_s[i] = np.linalg.multi_dot([M[i], I_i])
-        
-        if pol == self.polV: 
-            sigma_0 = 4 * np.pi * np.cos(self.theta_s) * (M[:,0,0] + 2*M[:,0,1] + M[:,1,1]) / 2
-        elif pol == self.polH: 
-            sigma_0 = 4 * np.pi * np.cos(self.theta_s) * (M[:,0,0] - 2*M[:,0,1] + M[:,1,1]) / 2
-        
-
-#         DLP = np.sqrt(I_s[:,1,0]**2 + I_s[:,2,0]**2) / I_s[:,0,0]
-        DLP = 0
-
-        return sigma_0, DLP
-    
-      
-
-    def I2EM_emissivity(self, l1, l2):
+    def I2EM_emissivity(self, thetai, eps1, eps2, ks):
         
         """
         Compute the H and V rough surface emissivity using rough surface 
@@ -863,17 +769,29 @@ class VRT:
         e_h: Rough surface emissivity in H polarization
         """
         
-        theta_i = np.rad2deg(l2.theta_i)
+        try:
+            thetai =  thetai.item()
+        except:
+            pass
+        try:
+            ks = ks.item()
+        except:
+            pass
+        try:
+            eps = (eps2/eps1).item()
+        except:
+            eps = eps2/eps1
         
         # # if float is not iterable error rises, check if the matlab function returns are separated by commas
         eng = matlab.engine.start_matlab()
-        e_v, e_h = eng.I2EM_Emissivity_model(self.nu/1e9, l2.upperks, l2.corrlen, theta_i.item(), l2.eps/l1.eps, 1, nargout=2)           # using .item() to convert from numpy float64 to python scalar
+        e_v, e_h = eng.I2EM_Emissivity_model(self.nu/1e9, ks, self.wavelength, thetai, eps, 1, nargout=2)           # using .item() to convert from numpy float64 to python scalar
 
         return e_v, e_h
     
-    def surfaceBSC(self, val, crosspol="False"):
+    def surfaceBSC(self, val, crosspol=False, emission = False):
+        
         self.setGeometricOptics()
-        self.setLayerProperties()
+
         
         thetai_rad =  np.deg2rad(val["thetai"])    
         
@@ -886,13 +804,13 @@ class VRT:
         except:
             ks = val["ks1"]
         try:
-            eps = val["eps1"].item()/self.atm.eps
+            eps = (complex(val["eps1r"],val["eps1i"]) /val["atm_eps"]).item()
         except:
-            eps = val["eps1"]/self.atm.eps
+            eps = complex(val["eps1r"],val["eps1i"])/val["atm_eps"]
 
         
-        i01 = RoughSurface(self.wavelength, self.atm.eps, val["eps1"], val["ks1"], self.wavelength, autocorr_fn = "exponential", theta_i = thetai_rad, theta_s = thetai_rad)
-        if crosspol=="True":
+        i01 = RoughSurface(self.wavelength, val["atm_eps"], complex(val["eps1r"],val["eps1i"]), val["ks1"], self.wavelength, autocorr_fn = "exponential", theta_i = thetai_rad, theta_s = thetai_rad)
+        if crosspol==True:
             eng = matlab.engine.start_matlab()
             svv0, shh0, svh0 = eng.I2EM_Backscatter_model(self.nu/1e9, ks, self.wavelength, thi, eps, 1, 0, nargout=3)
             cpr = self.sigma2cpr(svv0, shh0, svh0)
@@ -900,16 +818,20 @@ class VRT:
             svv, shh = i01.Copol_BSC()
             svv0, shh0 = self.sigma2sigma0([svv, shh])
             cpr = 0.0
+            
+        if emission == True:
+            ev, eh = self.RT0_emission("surface", val, thetai_rad, thetat_rad = 0, k_a_medium = 0, scatterer = None,  n0 = 0)
+        else:
+            ev = eh = 0
         
-        return svv0, shh0, cpr
+        return svv0, shh0, cpr, ev, eh
     
     
-    def subsurfaceBSC(self, val, crosspol="False"):
+    def subsurfaceBSC(self, val, crosspol=True, emission = True):
         self.setGeometricOptics()
-        self.setLayerProperties()
         
         thetai_rad =  np.deg2rad(val["thetai"])  
-        thetat_rad = self.TransmissionAngle(thetai_rad, val["eps1"], val["eps2"])
+        thetat_rad = self.TransmissionAngle(thetai_rad, val["atm_eps"], complex(val["eps1r"],val["eps1i"]))
         
         thi = np.rad2deg(thetat_rad).item()
         try:
@@ -917,69 +839,77 @@ class VRT:
         except:
             ks = val["ks2"]
         try:
-            eps = (val["eps2"]/val["eps1"]).item()
+            eps = (complex(val["eps2r"],val["eps2i"])/complex(val["eps1r"],val["eps1i"])).item()
         except:
-            eps = val["eps2"]/val["eps1"]
+            eps = complex(val["eps2r"],val["eps2i"])/complex(val["eps1r"],val["eps1i"])
      
         # # Reflection from subsurface interface
-        if crosspol=="True":
+        if crosspol==True:
                 eng = matlab.engine.start_matlab()
                 svv0, shh0, svh0 = eng.I2EM_Backscatter_model(self.nu/1e9, ks, self.wavelength, thi, eps, 1, 0, nargout=3)
                 svv, shh, svh = self.sigma02sigma([svv0, shh0, svh0])     
         else:
-            i12 = RoughSurface(self.wavelength, val["eps1"], val["eps2"], val["ks2"], self.wavelength, autocorr_fn = "exponential", theta_i = thetat_rad, theta_s = thetat_rad)
+            i12 = RoughSurface(self.wavelength, complex(val["eps1r"],val["eps1i"]), complex(val["eps2r"],val["eps2i"]), val["ks2"], self.wavelength, autocorr_fn = "exponential", theta_i = thetat_rad, theta_s = thetat_rad)
             svv, shh = i12.Copol_BSC()
             svh = 0.0
         R12nc = self.sigma2Mueller(svv, shh, svh)
         
         
         # # Transmission through in to the upper layer
-        T01c = self.CoherentTransMatrix(self.atm.eps, val["eps1"], val["ks1"], thetai_rad)
-        T10c = self.CoherentTransMatrix(val["eps1"], self.atm.eps, val["ks1"], thetat_rad)
+        T01c = self.CoherentTransMatrix(val["atm_eps"], complex(val["eps1r"],val["eps1i"]), val["ks1"], thetai_rad)
+        T10c = self.CoherentTransMatrix(complex(val["eps1r"],val["eps1i"]), val["atm_eps"], val["ks1"], thetat_rad)
         
         # # Background absorption ulaby equation 11.47
-        k_a_medium = 2 * self.k * np.sqrt(val["eps1"]).imag
+        k_a_medium = 2 * self.k * np.sqrt(val["eps1i"])
         
-        
+        tm = None
+        n0 = 0
         # # subsurface scattering with buried scatterers
-        if val["a"] != 0 and val["epsinc"].real !=0:
-            print("scatterers present")
+        if val["a"] != 0 and val["epsincr"] !=0:
             # # Create a T-matrix instance for volume scattering calculations (phase matrix and extinction matrix)
             D_med = val["a"]          # median diameter in m
             D_max = 2 * val["a"]       # maximum diameter in m
             Lambda = 1          # some parameter to change for particle size?
             mu = 1
             N = 5000 
-            tm, n0 = self.Tmatrixcalc(val["a"], val["epsinc"].real ** 0.5, val["abyc"], val["alpha"], val["beta"], D_med=D_med, D_max=D_max, Lambda=Lambda, mu=mu, N=N)
+            tm, n0 = self.Tmatrixcalc(val["a"], val["epsincr"] ** 0.5, val["abyc"], val["alpha"], val["beta"], D_med=D_med, D_max=D_max, Lambda=Lambda, mu=mu, N=N)
+
             Msub = self.Mueller_bed(val, thetai_rad, thetat_rad, k_a_medium, T01c, T10c, R12nc, tm, n0)
 
         # # subsurface scattering without buried scatterers
-        else:                
+        else:        
             Msub = T01c * np.exp(k_a_medium * -val["d"] /np.cos(thetat_rad)) * R12nc * np.exp(k_a_medium * -val["d"] /np.cos(thetat_rad)) * T10c
             
-        svv, shh = self.Mueller2sigma(Msub)    
+#         svv, shh = self.Mueller2sigma(Msub) 
+        svv, shh = self.Muellermod2sigma(Msub) 
         svv0, shh0 = self.sigma2sigma0([svv, shh]) 
         cpr = self.Mueller2cpr(Msub)
         
-        return svv0, shh0, cpr
+        if emission == True:
+            ev, eh = self.RT0_emission("subsurface", val, thetai_rad, thetat_rad, k_a_medium, scatterer = tm,  n0 = n0)
+        else:
+            ev = eh = 0
+        
+        return svv0, shh0, cpr, ev, eh
     
     
-    def volumeBSC(self, val, crosspol="False"):
+    def volumeBSC(self, val, crosspol=True, emission = True):
         self.setGeometricOptics()
-        self.setLayerProperties()
         
         thetai_rad = np.deg2rad(val["thetai"])
-        thetat_rad = self.TransmissionAngle(thetai_rad, self.atm.eps, val["eps1"])
+        thetat_rad = self.TransmissionAngle(thetai_rad, val["atm_eps"], complex(val["eps1r"],val["eps1i"]))
         
         # # transmissivity into layer
-        T01_coh = self.CoherentTransMatrix(self.atm.eps, val["eps1"], val["ks1"], thetai_rad)
-        T10_coh = self.CoherentTransMatrix(val["eps1"], self.atm.eps, val["ks1"], thetat_rad)
+        T01_coh = self.CoherentTransMatrix(val["atm_eps"], complex(val["eps1r"],val["eps1i"]), val["ks1"], thetai_rad)
+        T10_coh = self.CoherentTransMatrix(complex(val["eps1r"],val["eps1i"]), val["atm_eps"], val["ks1"], thetat_rad)
         
         # # Extinction due to uniform background medium ulaby equation 11.47
-        k_a_medium = 2 * self.k * np.sqrt(val["eps1"]).imag
+        k_a_medium = 2 * self.k * np.sqrt(val["eps1i"])
 
+        tm = None
+        n0 = 0
         # # Create a T-matrix instance for volume scattering calculations (phase matrix and extinction matrix)
-        if val["a"] != 0 and val["epsinc"].real !=0:
+        if val["a"] != 0 and val["epsincr"].real !=0:
             D_med = val["a"]          # median diameter in m
             D_max = 2 * val["a"]       # maximum diameter in m
             Lambda = 1          # some parameter to change for particle size?
@@ -987,32 +917,36 @@ class VRT:
             N = 1000         # increase for increasing particle concentration (n0); don't go over N=10000 0r 15000
             # # parameters for particle size distribution
 
-            tm, n0 = self.Tmatrixcalc(val["a"], val["epsinc"].real ** 0.5, val["abyc"], val["alpha"], val["beta"], D_med=D_med, D_max=D_max, Lambda=Lambda, mu=mu, N=N)
+            tm, n0 = self.Tmatrixcalc(val["a"], val["epsincr"] ** 0.5, val["abyc"], val["alpha"], val["beta"], D_med=D_med, D_max=D_max, Lambda=Lambda, mu=mu, N=N)
 
         Mvol = self.Mueller_vol(val, thetai_rad, thetat_rad, k_a_medium, T01_coh, T10_coh, tm, n0)
-        svv, shh = self.Mueller2sigma(Mvol)
-        svv, shh = self.sigma2sigma0([svv, shh])
+        svv, shh = self.Muellermod2sigma(Mvol)
+        svv0, shh0 = self.sigma2sigma0([svv, shh])
         cpr = self.Mueller2cpr(Mvol)
         
-        return svv, shh, cpr
+        if emission == True:
+            ev, eh = self.RT0_emission("volume", val, thetai_rad, thetat_rad, k_a_medium, scatterer = tm,  n0 = n0)
+        else:
+            ev = eh = 0
+        
+        return svv0, shh0, cpr, ev, eh
     
-    def volumesubBSC(self, val, crosspol="False"):
+    def volumesubBSC(self, val, crosspol=False):
         
         self.setGeometricOptics()
-        self.setLayerProperties()
         
         thetai_rad = np.deg2rad(val["thetai"])
-        thetat_rad = self.TransmissionAngle(thetai_rad, self.atm.eps, val["eps1"])
+        thetat_rad = self.TransmissionAngle(thetai_rad, val["atm_eps"], complex(val["eps1r"],val["eps1i"]))
         
         # # transmissivity into layer
-        T01_coh = self.CoherentTransMatrix(self.atm.eps, val["eps1"], val["ks1"], thetai_rad)
-        T10_coh = self.CoherentTransMatrix(val["eps1"], self.atm.eps, val["ks1"], thetat_rad)
+        T01_coh = self.CoherentTransMatrix(val["atm_eps"], complex(val["eps1r"],val["eps1i"]), val["ks1"], thetai_rad)
+        T10_coh = self.CoherentTransMatrix(complex(val["eps1r"],val["eps1i"]), val["atm_eps"], val["ks1"], thetat_rad)
         
         # # Extinction due to uniform background medium ulaby equation 11.47
-        k_a_medium = 2 * self.k * np.sqrt(val["eps1"]).imag
+        k_a_medium = 2 * self.k * np.sqrt(val["eps1i"])
         
         # # Reflection from subsurface interface
-        R12_coh = self.CoherentRefMatrix(val["eps1"], val["eps2"], val["ks2"], thetat_rad)
+        R12_coh = self.CoherentRefMatrix(complex(val["eps1r"],val["eps1i"]), complex(val["eps2r"],val["eps2i"]), val["ks2"], thetat_rad)
 
         # # Create a T-matrix instance for volume scattering calculations (phase matrix and extinction matrix)
         if val["a"] != 0 and val["epsinc"].real !=0:
@@ -1023,14 +957,14 @@ class VRT:
             N = 1000         # increase for increasing particle concentration (n0); don't go over N=10000 0r 15000
             # # parameters for particle size distribution
 
-            tm, n0 = self.Tmatrixcalc(val["a"], val["epsinc"].real ** 0.5, val["abyc"], val["alpha"], val["beta"], D_med=D_med, D_max=D_max, Lambda=Lambda, mu=mu, N=N)
+            tm, n0 = self.Tmatrixcalc(val["a"], val["epsincr"] ** 0.5, val["abyc"], val["alpha"], val["beta"], D_med=D_med, D_max=D_max, Lambda=Lambda, mu=mu, N=N)
 
         Mvolsub = self.Mueller_volbed(val, thetai_rad, thetat_rad, k_a_medium, T01_coh, T10_coh, R12_coh, tm, n0) + self.Mueller_bedvol(val, thetai_rad, thetat_rad, k_a_medium, T01_coh, T10_coh, R12_coh, tm, n0)
         svv, shh = self.Mueller2sigma(Mvolsub)
-        svv, shh = self.sigma2sigma0([svv, shh])
+        svv0, shh0 = self.sigma2sigma0([svv, shh])
         cpr = self.Mueller2cpr(Mvolsub)
         
-        return svv, shh, cpr
+        return svv0, shh0, cpr
 
     
     def VRTsolver(self, val_dict, scattertype):
@@ -1048,13 +982,14 @@ class VRT:
         e_v: Emissivity in V polarization
         e_h: Emissivity in H polarization
         """
-        
         # # output placeholders
         
         shh_sur = svv_sur = cpr_sur = shh_sub = svv_sub = cpr_sub = shh_vol = svv_vol = cpr_vol = shh_volsub = svv_volsub = cpr_volsub = np.nan
+        eh_sur = ev_sur = eh_sub = ev_sub = eh_vol = ev_vol = np.nan
                
         if scattertype == "surface":
-            svv_sur, shh_sur, cpr_sur = self.surfaceBSC(val_dict, "False")
+            svv_sur, shh_sur, cpr_sur, ev_sur, eh_sur = self.surfaceBSC(val_dict, crosspol = True, emission = True)
+            
             try:
                 svv_sur = svv_sur.real
                 shh_sur = shh_sur.real
@@ -1062,7 +997,7 @@ class VRT:
                 pass
                
         if scattertype == "subsurface":
-            svv_sub, shh_sub, cpr_sub = self.subsurfaceBSC(val_dict, "True")
+            svv_sub, shh_sub, cpr_sub, ev_sub, eh_sub = self.subsurfaceBSC(val_dict, crosspol = True, emission = True)
             try:
                 svv_sub = svv_sub.real
                 shh_sub = shh_sub.real
@@ -1070,7 +1005,7 @@ class VRT:
                 pass
                
         if scattertype == "volume":
-            svv_vol, shh_vol, cpr_vol = self.volumeBSC(val_dict)
+            svv_vol, shh_vol, cpr_vol, ev_vol, eh_vol = self.volumeBSC(val_dict, emission = True)
             try:
                 svv_vol = svv_vol.real
                 shh_vol = shh_vol.real
@@ -1084,74 +1019,19 @@ class VRT:
                 shh_volsub = shh_vol.real
             except:
                 pass
+
                
         # # make a pandas series
         cols = list(val_dict.keys())
-        output_cols = ["shh_sur", "svv_sur", "cpr_sur", "shh_sub", "svv_sub", "cpr_sub", "shh_vol", "svv_vol", "cpr_vol", "shh_volsub", "svv_volsub", "cpr_volsub"]
+        output_cols = ["shh_sur", "svv_sur", "cpr_sur", "shh_sub", "svv_sub", "cpr_sub", "shh_vol", "svv_vol", "cpr_vol", "shh_volsub", "svv_volsub", "cpr_volsub", "ev_sur", "eh_sur", "ev_sub", "eh_sub"]
         cols.extend(output_cols) 
                
         values = list(val_dict.values())
-        output_values = [shh_sur, svv_sur, cpr_sur, shh_sub, svv_sub, cpr_sub, shh_vol, svv_vol, cpr_vol, shh_volsub, svv_volsub, cpr_volsub]
+        output_values = [shh_sur, svv_sur, cpr_sur, shh_sub, svv_sub, cpr_sub, shh_vol, svv_vol, cpr_vol, shh_volsub, svv_volsub, cpr_volsub, ev_sur, eh_sur, ev_sub, eh_sub]
         values.extend(output_values)
-
         return values
-            
-               
-        # # check if this is necessary
 
-#         self.R01 = self.NonCoherentRefMatrix(self.i01, self.l1.theta_i)
-#         self.R12 = self.NonCoherentRefMatrix(self.i12, self.l1.theta_t)
-        
-#         self.R01_coh = self.CoherentRefMatrix(self.atm, self.l1, self.l1.theta_i)
-#         self.R12_coh = self.CoherentRefMatrix(self.l1, self.l2, self.l1.theta_t)
-                                  
-#         # # adding a factor in front of transmission matrix based on equation 11.61b in Ulaby big book
-                                          
-#         self.T01 = self.NonCoherentTransMatrix(self.i01, self.l1.theta_i)
-#         self.T10 = self.NonCoherentTransMatrix(self.i10, self.l2.theta_s)
-        
-#         self.T01_coh = self.CoherentTransMatrix(self.atm, self.l1, self.l1.theta_i)
-#         self.T10_coh = self.CoherentTransMatrix(self.l1, self.atm, self.l2.theta_s)
-
-#         # # Create a T-matrix instance for phase matrix and extinction matrix calculations
-#         tm = self.Tmatrixcalc(self.l1)
-  
-#         # # VRT
-        
-#         sigma_hh, DLP = self.Mueller_lin(tm, self.polH)
-#         sigma_vv, _ = self.Mueller_lin(tm, self.polV)
-        
-# #         cpr = self.Mueller_circ(tm, "LC")
-#         cpr = np.zeros(5)
-
-        
-#         sigma0_hh, sigma0_vv = self.sigma2sigma0([sigma_hh, sigma_vv])
-
-#         e_v, e_h = self.RT0_emission(tm)
-        
-#         return [sigma0_vv, sigma0_hh, cpr, e_v, e_h]
-        
-        # # only for plotting fresnel coefficients
-#         refh,transh,rh,th = self.FresnelCoefH(self.atm, self.l1, self.theta_i)
-#         refv,transv,rv,tv = self.FresnelCoefV(self.atm, self.l1, self.theta_i)
-#         return [sigma0_vv, sigma0_hh, CPR, refh, refv, transh, transv, rh, rv, th, tv]
-        
-#         # # only for plotting surface backscatter
-#         svv1, svv2, shh1, shh2, stvv1, sthh1, stvv2, sthh2 = self.reftranscomp()
-#         return svv1, svv2, shh1, shh2, stvv1, sthh1, stvv2, sthh2
-
-
-        # surface backscatter
-#         svv0, sigmavv0, shh0, sigmahh0 = self.I2EM(self.atm, self.l1)
-        
-#         eng = matlab.engine.start_matlab()
-#         svv0, shh0, sigma0hv = eng.I2EM_Backscatter_model(self.nu/1e9, self.l1.upperks, self.l1.corrlen, self.theta_i.item(), self.l1.eps/self.atm.eps, 1, 0, nargout=3)
-#         svv, shh = self.i01.Copol_BSC()
-#         return svv, shh
-#         sigmavv0, sigmahh0 = self.sigma2sigma0([shh, svv])
-#         return svv0, sigmavv0, shh0, sigmahh0
-
-    def RT0_emission(self, scatterer):
+    def RT0_emission(self, scattertype, val, thetai_rad, thetat_rad = 0, k_a_medium = 0, scatterer = None, n0 = 0):
         """
         Primary function that executes the oth order VRT emission model
         
@@ -1161,59 +1041,79 @@ class VRT:
         Returns:
         e_v: Emissivity in V polarization
         e_h: Emissivity in H polarization
-        """
+        """        
+
+        e01_v, e01_h = self.I2EM_emissivity(val["thetai"], val["atm_eps"], complex(val["eps1r"],val["eps1i"]), val["ks1"])
         
-        self.setGeometricOptics()
-        self.setLayerProperties()
-        
-        beta, E, Einv = self.ExtinctionMatrix(scatterer, self.l2.theta_s, self.phi_s)
-        trans = np.linalg.multi_dot([E, self.D(beta, self.l2.theta_s, self.l1.d), Einv])
+        if scattertype == "surface":
+            ev_sur = e01_v
+            eh_sur = e01_h
+            return ev_sur, eh_sur
+        else:
+            if scatterer != None:
+                k_a_medium = 2 * self.k * np.sqrt(val["eps1i"])
+                beta, E, Einv = self.ExtinctionMatrix(scatterer, val, n0, thetat_rad, self.phi_s)
+                trans = np.linalg.multi_dot([E, self.D(beta, thetat_rad, val["d"], kab = k_a_medium), Einv])
+#                 trans_v = 0.25 * (trans[0,0] + 2*trans[0,1] + trans[1,1])
+#                 trans_h = 0.25 * (trans[0,0] - 2*trans[0,1] + trans[1,1])
+                trans_v = trans[0,0]
+                trans_h = trans[1,1]
+            else:
+                trans_v = trans_h = np.exp(-k_a_medium * val["d"] / np.cos(thetat_rad))
 
 
-        # # resetting scatterer geometry after extinction matrix calculation
-        geom = (np.rad2deg(self.theta_s), np.rad2deg(self.theta_s), np.rad2deg(self.phi_s), np.rad2deg(self.phi_s),
-                np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
-        scatterer.set_geometry(geom,)
-        scatterer.psd_integrator.geometries = (geom,)
-        scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
-#         ke_v, _ = self.ExtinctionCS(scat, self.theta_s, self.phi_s, self.polV)
-#         ke_h, _ = self.ExtinctionCS(scat, self.theta_s, self.phi_s, self.polH)
+            e12_v, e12_h = self.I2EM_emissivity(np.rad2deg(thetat_rad), complex(val["eps1r"],val["eps1i"]), complex(val["eps2r"],val["eps2i"]), val["ks2"])
+
+            gamma01_v = 1 - e01_v
+            gamma01_h = 1 - e01_h
+            gamma12_v = 1 - e12_v
+            gamma12_h = 1 - e12_h
+
+            if scattertype == "subsurface":
+                ev_sub = ((1 - gamma01_v) / (1 - gamma01_v * gamma12_v * trans_v**2)) * trans_v * e12_v
+                eh_sub = ((1 - gamma01_h) / (1 - gamma01_h * gamma12_h * trans_h**2)) * trans_h * e12_h
+                return ev_sub, eh_sub
         
-#         ks_v, _ = self.ScatterCS(scat, self.theta_s, self.phi_s, self.polV)
-#         ks_h, _ = self.ScatterCS(scat, self.theta_s, self.phi_s, self.polH)
-        
-        ke_v = scatter.ext_xsect(scatterer, h_pol=False)
-        ke_h = scatter.ext_xsect(scatterer, h_pol=True)
-        
-        ks_v = scatter.sca_xsect(scatterer, h_pol=False)
-        ks_h = scatter.sca_xsect(scatterer, h_pol=True)
-        
-        ssa_v = scatter.ssa(scatterer, h_pol=False)
-        ssa_h = scatter.ssa(scatterer, h_pol=True)
+            if scattertype == "volume":
                 
-#         ssa_h = ks_h/ke_h
-#         ssa_v = ks_v/ke_v
+                # # resetting scatterer geometry after extinction matrix calculation
+                geom = (np.rad2deg(self.theta_s), np.rad2deg(self.theta_s), np.rad2deg(self.phi_s), np.rad2deg(self.phi_s),
+                        np.rad2deg(self.l1.inclusions.alpha), np.rad2deg(self.l1.inclusions.beta))
+                scatterer.set_geometry(geom,)
+                scatterer.psd_integrator.geometries = (geom,)
+                scatterer.psd_integrator.init_scatter_table(scatterer, angular_integration=True)
+        #         ke_v, _ = self.ExtinctionCS(scat, self.theta_s, self.phi_s, self.polV)
+        #         ke_h, _ = self.ExtinctionCS(scat, self.theta_s, self.phi_s, self.polH)
 
-        print(self.l1.eps)
-        print("SSA = ", ssa_h, ssa_v)
+        #         ks_v, _ = self.ScatterCS(scat, self.theta_s, self.phi_s, self.polV)
+        #         ks_h, _ = self.ScatterCS(scat, self.theta_s, self.phi_s, self.polH)
+
+                ke_v = scatter.ext_xsect(scatterer, h_pol=False)
+                ke_h = scatter.ext_xsect(scatterer, h_pol=True)
+
+                ks_v = scatter.sca_xsect(scatterer, h_pol=False)
+                ks_h = scatter.sca_xsect(scatterer, h_pol=True)
+                
+                ssa_v = scatter.ssa(scatterer, h_pol=False)
+                ssa_h = scatter.ssa(scatterer, h_pol=True)
+
+                # # one of these needs to be integrated? this won't work
+        #         ssa_h = ks_h/ke_h
+        #         ssa_v = ks_v/ke_v
+
+                a_h = 1-ssa_h
+                a_v = 1-ssa_v
+                ev_vol = ((1 - gamma01_v) / (1 - gamma01_v * gamma12_v * trans_v**2)) * (1 + gamma12_v*trans_v) * (1-a_v) * (1 - trans_v)
+                eh_vol = ((1 - gamma01_h) / (1 - gamma01_h * gamma12_h * trans_h**2)) * (1 + gamma12_h*trans_h) * (1-a_h) * (1 - trans_h)
+                return ev_vol, eh_vol
+
+            
+#         e_v = ((1 - gamma01_v) / (1 - gamma01_v * gamma12_v * trans_v**2)) * \
+#             ((1 + gamma12_v*trans_v) * (1-a_v) * (1 - trans_v) + (1 - gamma12_v) * trans_v)
         
-        a_h = 1-ssa_h
-        a_v = 1-ssa_v
+#         e_h = ((1 - gamma01_h) / (1 - gamma01_h * gamma12_h * trans_h**2)) * \
+#             ((1 + gamma12_h*trans_h) * (1-a_h) * (1 - trans_h) + (1 - gamma12_h) * trans_h)
         
-        e01_v, e01_h = self.I2EM_emissivity(self.atm, self.l1)
-        e12_v, e12_h = self.I2EM_emissivity(self.l1, self.l2)
-        
-        gamma01_v = 1 - e01_v
-        gamma01_h = 1 - e01_h
-        gamma12_v = 1 - e12_v
-        gamma12_h = 1 - e12_h
-        
-        e_v = ((1 - gamma01_v) / (1 - gamma01_v * gamma12_v * trans[0,0]**2)) * \
-            ((1 + gamma12_v*trans[0,0]) * (1-a_v) * (1 - trans[0,0]) + (1 - gamma12_v) * trans[0,0])
-        
-        e_h = ((1 - gamma01_h) / (1 - gamma01_h * gamma12_h * trans[1,1]**2)) * \
-            ((1 + gamma12_h*trans[1,1]) * (1-a_h) * (1 - trans[1,1]) + (1 - gamma12_h) * trans[1,1])
-        
-        return e_v, e_h
+#         return e_v, e_h
 
        
