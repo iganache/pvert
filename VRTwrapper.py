@@ -12,8 +12,9 @@ from VRT_module import VRT
 # from VRT_Tsang import VRT
 import multiprocessing as mp
 import matplotlib.pyplot as plt
-from itertools import product
+from itertools import product, cycle
 import pandas as pd
+
 
 
 class VRTmodel:
@@ -36,7 +37,7 @@ class VRTmodel:
     
     def make_df(self, results, input_dict):
         
-        output_cols = ["shh_sur", "svv_sur", "cpr_sur", "shh_sub", "svv_sub", "cpr_sub", "shh_vol", "svv_vol", "cpr_vol", "shh_volsub", "svv_volsub", "cpr_volsub", "ev_sur", "eh_sur", "ev_sub", "eh_sub"]
+        output_cols = ["emks1", "emks2", "shh_sur", "svv_sur", "cpr_sur", "shh_sub", "svv_sub", "cpr_sub", "shh_vol", "svv_vol", "cpr_vol", "shh_volsub", "svv_volsub", "cpr_volsub", "shh_total", "svv_total", "cpr_total", "ev_sur", "eh_sur", "ev_sub", "eh_sub", "ev_vol", "eh_vol", "ev_total", "eh_total"]
         input_cols = list(input_dict[0].keys())
         cols = input_cols + output_cols
 
@@ -203,32 +204,7 @@ class VRTmodel:
 
         plt.show()
         
-    def lineplot(self, df, xcol, ycol, groupcol, xlabel=None, ylabel=None, legend = "", data = None, outfile="ex.png"):
-        
-        setPlotStyle()
-        fig, ax = plt.subplots(nrows=1, ncols=1)
-        colors = ['#374043', '#4C8D8B', '#D1E2BC','#BFBB68', '#D87439', '#984ea3','#999999', '#e41a1c', '#dede00']
-        i=0
-        
-        for key, grp in df.groupby([groupcol]):
-            ax = grp.plot(ax=ax, kind='line', x=xcol, y=ycol, c=colors[i], label=legend+" = "+str(key))
-            i+=1
-            
-        if xlabel != None: ax.set_xlabel(xlabel)
-        if ylabel != None: ax.set_ylabel(ylabel)
-            
-        if data !=None:
-            if len(data) == 2:
-                ax.axhspan(data[0], data[1], alpha=0.5, color='gray')
-            else:
-                ax.axhline(data, color='gray')
-            
-        figure = plt.gcf()
-        figure.set_size_inches(16, 12)
-        plt.savefig(outfile)   
-            
-        plt.show()            
-       
+ 
         
     def writeCSV(self, outfile):
         
@@ -263,20 +239,6 @@ def plotCSV(infile):
     self.plotOutput(x, xlabel, sigmavv, sigmahh, cpr)
     
 
-def setPlotStyle():
-        ###### Set matplolib font sizs ###############
-        # plt.style.use('dark_background')
-        font = {'family' : 'sans-serif',
-            'sans-serif':'Arial',
-            'size'   : 35}
-        plt.rc('font', **font)
-        plt.rc('axes', titlesize=40)     # fontsize of the axes title
-        plt.rc('axes', labelsize=40)    # fontsize of the x and y labels
-        plt.rc('xtick', labelsize=35)    # fontsize of the tick labels
-        plt.rc('ytick', labelsize=35)    # fontsize of the tick labels
-        plt.rc('legend', fontsize=40)    # legend fontsize
-        plt.rc('legend', title_fontsize=40)    # legend fontsize
-        plt.rc('figure', titlesize=30)  # fontsize of the figure title
     
 
   
