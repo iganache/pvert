@@ -7,9 +7,7 @@ Created on Thu Feb 18 00:39:40 2021
 """
 
 import numpy as np
-from Layers import Layers
 from VRT_module import VRT
-# from VRT_Tsang import VRT
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 from itertools import product, cycle
@@ -37,7 +35,7 @@ class VRTmodel:
     
     def make_df(self, results, input_dict):
         
-        output_cols = ["emks1", "emks2", "shh_sur", "svv_sur", "cpr_sur", "shh_sub", "svv_sub", "cpr_sub", "shh_vol", "svv_vol", "cpr_vol", "shh_volsub", "svv_volsub", "cpr_volsub", "shh_total", "svv_total", "cpr_total", "ev_sur", "eh_sur", "ev_sub", "eh_sub", "ev_vol", "eh_vol", "ev_total", "eh_total"]
+        output_cols = ["ks1", "ks2", "shh_sur", "svv_sur", "cpr_sur", "dlp_sur", "shh_sub", "svv_sub", "cpr_sub", "dlp_sub", "shh_vol", "svv_vol", "cpr_vol", "dlp_vol", "shh_volsub", "svv_volsub", "cpr_volsub", "dlp_volsub", "shh_total", "svv_total", "cpr_total", "dlp_total", "ev_sur", "eh_sur", "ev_sub", "eh_sub", "ev_vol", "eh_vol", "ev_total", "eh_total", "ssa_v", "ssa_h"]
         input_cols = list(input_dict[0].keys())
         cols = input_cols + output_cols
 

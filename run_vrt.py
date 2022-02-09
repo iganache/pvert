@@ -13,8 +13,8 @@ Range of vlaues for different parameters
 import numpy as np
 from Layers import Layers
 from VRT_module import VRT
-# from VRT_Tsang import VRT
-from VRTwrapper import VRTmodel, plotCSV
+from plotting import plotting
+from VRTwrapper import VRTmodel
 from itertools import product
 
 def generate_dictlist(**kwargs):
@@ -32,135 +32,128 @@ def main():
 
     vrtmodel = VRTmodel(nproc = 10)
     
-    # for scene1 - surface scattering
-#     dict_list = generate_dictlist(thetai=[45.7],
-#                                   d=[0.05], 
-#                                   atm_eps = [1+0j], 
-#                                   eps1r=list(np.linspace(3, 7, 5)), eps1i=[0.005],
-#                                   eps2r=[11], eps2i=[.003],
-#                                   epsincr=[6], epsinci=[.05],
-#                                   ks2=[0.003], ks1=list(np.linspace(0.001, 0.045,30)),
-#                                   n0 = [2], a=[0.0], abyc= [0.6], alpha=[0.], beta=[0.])
-    
-     # for scene2 - surface scattering
-#     dict_list = generate_dictlist(thetai=[45.7],
-#                                   d=[0.05], 
-#                                   atm_eps = [1+0j], 
-#                                   eps1r=[5], eps1i=[0, 1, 10, 100],
-#                                   eps2r=[11], eps2i=[.003],
-#                                   epsincr=[6], epsinci=[.05],
-#                                   ks2=[0.003], ks1=list(np.linspace(0.001, 0.045,30)),
-#                                   n0 = [2], a=[0.0], abyc= [0.6], alpha=[0.], beta=[0.])
-    
-    # for scene3 - mantled rough surface scattering
-    dict_list = generate_dictlist(thetai=[45.7],
-                                  d=[0.063], 
+     # for different incidence angles
+        
+    # # scene 1 - - fluffy with rough surface
+    # # scattering mechanisms - surface
+    dict_list = generate_dictlist(thetai=list(np.linspace(0.0, 80.0, 10)),
+                                  d=[0.126], 
                                   atm_eps = [1+0j], 
-                                  eps2r=[7,9,11,13,15], eps2i=[0.1],
-                                  eps1r=[3], eps1i=[.001],
+                                  eps2r=[9], eps2i=[0.1],
+                                  eps1r=[5, 7], eps1i=[.01],
                                   epsincr=[6], epsinci=[.05],
-                                  ks1=[0.00], ks2=list(np.linspace(0.001, 0.045, 30)),
-                                  n0 = [2], a=[0.0], abyc= [0.6], alpha=[0.], beta=[0.])
+                                  s1=[0.026, 0.04], s2=[0.008],
+                                  cl1 = [0.5], cl2 = [0.5],
+                                  psdfunc = ["exponential"],
+                                  n0 = [1], volfrac = [0.1], 
+                                  Dmax = [0.03], Lambda = [500], mu = [100],
+                                  a=[None], abyc= [1.0], 
+                                  alpha=[0.], beta=[0.])
     
+#     dict_list = generate_dictlist(thetai=list(np.linspace(0.0, 80.0, 10)),
+#                                   d=[0.126], 
+#                                   atm_eps = [1+0j], 
+#                                   eps2r=[9], eps2i=[0.1],
+#                                   eps1r=[5], eps1i=[.01],
+#                                   epsincr=[6], epsinci=[.05],
+#                                   s1=[0.01, 0.04], s2=[0.008],
+#                                   cl1 = [0.1, 0.5, 1.0], cl2 = [0.5],
+#                                   psdfunc = ["exponential"],
+#                                   n0 = [1], volfrac = [0.1], 
+#                                   Dmax = [0.03], Lambda = [500], mu = [100],
+#                                   a=[None], abyc= [1.0], 
+#                                   alpha=[0.], beta=[0.])
+
+        
+        
+    # # scene 2  - mantled rough surface
+    # scattering mechanisms - surface, subsurface
+#     dict_list = generate_dictlist(thetai=list(np.linspace(0.0, 80.0, 20)),
+#                                   d=[0.126, 0.5], 
+#                                   atm_eps = [1+0j], 
+#                                   eps2r=[8], eps2i=[.01],
+#                                   eps1r=[2], eps1i=[.001],
+#                                   epsincr=[6], epsinci=[.05],
+#                                   s1=[0.01], s2=[0.026, 0.04],
+#                                   cl1 = [0.5], cl2 = [0.5],
+#                                   psdfunc = ["exponential"],
+#                                   n0 = [1], volfrac = [0.1], 
+#                                   Dmax = [0.03], Lambda = [500], mu = [100],
+#                                   a=[None], abyc= [1.0], 
+#                                   alpha=[0.], beta=[0.])
+
+    # # scene 3 - volume scattering from rocks in fluffy medium (d = 100 m)
+    # # not using lossy / ferroeectric subsy=tarte as that could decrease emissivity further
+    # # scattering mechanisms - surface, subsurface, volume
+    # # volume - gamma: Dmax = .026, mu = 50, N = 5e4
+    # # volume - exponential: Dmax = .02, lambda = 300, N = 1e5
+    # # volume - exponential: Dmax = .016, lambda=350, N = 1e8; vf = .01
+    # # volume - exponential: Dmax = .016, lambda=140, N = 1e8; vf = .1
+#     dict_list = generate_dictlist(thetai=list(np.linspace(0.0, 80.0, 20)),
+#                                   d=[0.5, 5], 
+#                                   atm_eps = [1+0j], 
+#                                   eps1r = [2], eps1i = [0.05],
+#                                   eps2r=[8], eps2i=[0.05], 
+#                                   epsincr=[8], epsinci=[.05],
+#                                   s1=[0.005, 0.01, 0.04], s2=[0.01],
+#                                   cl1 = [0.5], cl2 = [0.5],
+#                                   psdfunc = ["exponential"],
+#                                   n0 = [1e8], volfrac = [.05], 
+#                                   Dmax = [0.016], Lambda = [205], mu = [50],
+#                                   a=[None], abyc= [1.5], 
+#                                   alpha=[0.], beta=[0.])
+
     
-#     # for volume scattering
-#     dict_list = generate_dictlist(thetai=[55],d=[1], atm_eps = [1+0j], eps2=[8+.005j], eps1=[4+.005j], 
-#                               epsinc=list(eps), n0 = [2], a=list(np.linspace(0.01, 0.04, 4)), abyc= [1.5], 
-#                               ks1=[0.001], ks2=[0.001],
-#                                  alpha=[0.], beta=[0.])
+   
+
+# # # inclusion permittivity
+#     dict_list = generate_dictlist(thetai=list(np.linspace(0.0, 80.0, 20)),
+#                                   d=[0.5], 
+#                                   atm_eps = [1+0j], 
+#                                   eps1r = [2], eps1i = [0.05],
+#                                   eps2r=[8], eps2i=[0.05], 
+#                                   epsincr=[8], epsinci=[0.05, 100],
+#                                   s1=[0.004], s2=[0.01],
+#                                   cl1 = [0.5], cl2 = [0.5],
+#                                   psdfunc = ["exponential"],
+#                                   n0 = [1e8], volfrac = [0.1], 
+#                                   Dmax = [0.012], Lambda = [140], mu = [50],
+#                                   a=[None], abyc= [1.5], 
+#                                   alpha=[0.], beta=[0.])
+
+
+
     
     # # pass the scattering mechanisms as a list of lists 
-    scattertypes = ['subsurface']
+    scattertypes = [["surface"]]
     output_df = vrtmodel.VRT_multiprocess(dict_list, scattertypes)
+    myplt = plotting()
     
-    # # Plotting - scene1
-#     vrtmodel.lineplot(output_df, 'ks1', 'shh_sur', 'eps1r', xlabel="wavelength scale EM roughness", ylabel='$\sigma_{HH}$',legend= '$\epsilon$'+'\'', data = [-10, -14], outfile = "sce1-BSC.png")
-#     vrtmodel.lineplot(output_df, 'ks1', 'eh_sur', 'eps1r', xlabel="wavelength scale EM roughness", ylabel='$e_{H}$',legend= '$\epsilon$'+'\'',data = [0.806, 0.876], outfile = "sce1-emis.png")
-#     outfile = "sce1.csv"
+    
+    
+    # # Plotting - scene1 - fluffy with ruff surface
+    outfile = "ResultPlots/Case1/surfaceBSC_Jan26.csv"
+    output_df.to_csv(outfile, sep = ',') 
+#     myplt.incplot(output_df, 'thetai', ['shh_sur'], ['ks1', 'cl1'], xlabel="Incidence angle", ylabel='$\sigma_{HH}$ (dB)',legend= '', data = "Mag_sigma.csv", xlim = [0, 80], ylim = [-40, 10], outfile = "ResultPlots/Case1/corrlen/BSCvsInc-corrlen.png")
+#     myplt.incplot(output_df, 'thetai', ['eh_sur'], ['ks1', 'cl1'], xlabel="Incidence Angle", ylabel='$e_{H}$',legend= '', data = "Mag_emis.csv", ylim = [0.2, 1], outfile = "ResultPlots/Case1/corrlen/BSCvsemis-corrlen.png")
+
+    
+#     # # Plotting - scene2 - ruff surface buried by thin layer - no surface - this layer depth smaller than penetration depth
+#     outfile = "ResultPlots/Case3/sce3-regeps2r-higheps2i.csv"
 #     output_df.to_csv(outfile, sep = ',') 
+#     myplt.incplot(output_df, 'thetai', ['shh_total'], ['ks2', 'd'], xlabel="Incidence angle", ylabel='$\sigma_{HH}$ (dB)',legend= '', data = "Mag_sigma.csv", ylim = [-40, 10], outfile = "ResultPlots/Case3/BSCvsInc-new-higheps2r.png")
+#     myplt.incplot(output_df, 'thetai', ['eh_sub'], ['ks2', 'd'], xlabel="Incidence Angle", ylabel='$e_{H}$',legend= '', data = "Mag_emis.csv", ylim = [0.2, 1], outfile = "ResultPlots/Case3/EmisvsInc-new-higheps2r.png")
 
-    # # Plotting - scene 2
-#     vrtmodel.lineplot(output_df, 'ks1', 'shh_sur', 'eps1i', xlabel="wavelength scale EM roughness", ylabel='$\sigma_{HH}$',legend= '$\epsilon$'+'\"', data = [-10, -14], outfile = "sce2-BSC.png")
-#     vrtmodel.lineplot(output_df, 'ks1', 'eh_sur', 'eps1i', xlabel="wavelength scale EM roughness", ylabel='$e_{H}$',legend= '$\epsilon$'+'\"', data = [0.806, 0.876], outfile = "sce2-emis.png")
-#     outfile = "sce2.csv"
+#     outfile = "ResultPlots/Case3/midrough/sce3-reg.csv"
 #     output_df.to_csv(outfile, sep = ',') 
-    
-    # # Plotting - scene3
-    vrtmodel.lineplot(output_df, 'ks2', 'shh_sub', 'eps2r', xlabel="wavelength scale EM roughness", ylabel='$\sigma_{HH}$',legend= '$\epsilon$'+'\'',data = [-10, -14], outfile = "sce3-halfthic-BSC.png")
-    vrtmodel.lineplot(output_df, 'ks2', 'eh_sub', 'eps2r', xlabel="wavelength scale EM roughness", ylabel='$e_{H}$',legend= '$\epsilon$'+'\'',data = [0.806, 0.876], outfile = "sce3-halfthic-emis.png")
-    outfile = "sce3-halfthic.csv"
-    output_df.to_csv(outfile, sep = ',')
-    
-#     outfile = "rough_fluffy.csv"
-#     output_df.to_csv(outfile, sep = ',') 
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-#     vrtmodel.plotsubBS_contour(output_df)
-#     vrtmodel.plotsubemis_contour(output_df)
-    
-#     outfile = "subsurface_noinc_mat.csv"
-#     output_df.to_csv(outfile, sep = ',')   
-    
+#     myplt.incplot(output_df, 'thetai', ['shh_total'], ['d','ks2'], xlabel="Incidence Angle", ylabel='$\sigma_{HH}$ (dB)', data = "Mag_sigma.csv", ylim = [-40, 10], legend= '', outfile = "ResultPlots/Case3/midrough/BSCvsInc-reg.png")
+#     myplt.incplot(output_df, 'thetai', ['eh_sub'], ['d','ks2'], xlabel="Incidence Angle", ylabel='$e_{H}$',  data = "Mag_emis.csv", ylim = [0.2, 1], legend= '', outfile = "ResultPlots/Case3/midrough/EmisvsInc-reg.png")
 
-    # # For computing backscatter for a range of values
-    
-    # # possible variable names - 'Incidence angle','Depth', 'Layer permittivity', 'Substrate permittivity', 'Permittivity of scatterers', 
-    # # 'Number concentration of scatterers', 'Maximum scatterer size', 'Axis ratio of scatterers', 'Surface roughness', 'Subsurface roughness'
-#     var_name = 'Layer permittivity'
-
-#     value = np.linspace(10,80,20)                # incidence angle
-#     value = np.linspace(5e-2, 20, 10)           # depth
-#     epsreal = np.linspace(4,10,2)              # permittivity variables
-#     value = epsreal + 1j*0.003                  # permittivity variables
-#     epsreal = 5
-#     epsimg = 1j* np.array([.003,.03,.3])
-#     value = epsreal + epsimg
-    
-#     value= np.linspace(1,.1,10)                # axis ratio of scatterers (takes a long time to run)
-#     value = np.linspace(.02, 0.06, 5)         # scatterer size
-#     value = np.linspace(0.001, 0.1, 10)         # scatterer size ? (upper limit seems large)
-#     value = np.arange(0., 0.036, .004)          # interface roughness?
-#     value = np.linspace(1, 10, 10)              # axis ratio of scatterers?
-#     value = np.linspace(0, 5000, 10)            # number concentration of scatterers?
-    
-#    value = np.array([complex(2.7, 0.003), complex(4.2, 0.003), complex(5.8, 0.003), complex(7, 0.003)])
-#    value = np.linspace(2e-3, 10e-2, 0)
-    
-    
-    
-    
-    # # single thread
-#     vrt.runModelVar(var_name, value)
-#     vrt.plotOutput(var_name, value)
-#     vrt.writeCSV("vrt_depth.csv", var_name, value)
-
-    
-    # # multithread
-#     vrtmodel = VRTmodel(vrt, var_name, value)
-#     vrtmodel.VRT_multiprocess()
-#     vrtmodel.plotOutput()
-#     vrtmodel.plotSurfaceBSC()
-#     vrtmodel.writeCSV("vrt_depth.csv")
-#    plotCSV("vrt_depth.csv")
-
-
+#     # # Plotting - scene3  
+#     outfile = "ResultPlots/Case4/inc_permittivity/vol_vf1_inc_clast_Jan20.csv"
+#     output_df.to_csv(outfile, sep = ',')
+#     myplt.incplot(output_df, 'thetai', ['shh_total'], ['epsincr', 'epsinci'],  xlabel="Incidence Angle", ylabel='$\sigma_{HH}$',legend= '', data = "Mag_sigma.csv",  xlim = [5, 80], ylim = [-40, 5], outfile =  "ResultPlots/Case4/inc_permittivity/vol_vf1_inc_clast_BSCvsInc_Jan20.png")
+#     myplt.incplot(output_df, 'thetai', ['eh_vol'], ['epsincr', 'epsinci'],  xlabel="Emission Angle", ylabel='$e_{H}$',legend= '', data = "Mag_emis.csv", xlim = [5, 80], ylim = [0.2, 1], outfile = "ResultPlots/Case4/inc_permittivity/vol_vf1_inc_clast_EmisvsInc_Jan20.png")
 
 if __name__ == '__main__':
     main()   

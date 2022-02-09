@@ -14,6 +14,6 @@ Used by VRT.py to set values for the VRT class
 
 wavelength = 12.6e-2
 altitude = 250e3
-incidence_angle = 35
+incidence_angle = 45
 polarization1 = 'V'
 polarization2 = 'H'
