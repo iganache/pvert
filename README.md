@@ -4,4 +4,4 @@ A set of Python + MATLAB codes for modeling radar backscatter and emission from 
 
 See [usage instructions](https://github.com/iganache/pvert/wiki) for more information on model functionalities and execution.
 
-Requires [NumPy](https://numpy.org/doc/stable/contents.html), [SciPy](https://www.scipy.org/), [pandas](https://pandas.pydata.org/), [pytmatrix](https://pypi.org/project/pytmatrix/), [Matlab](https://www.mathworks.com/products/matlab.html), and [Matlab engine for Python](https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html).
+Requires [NumPy](https://numpy.org/doc/stable/contents.html), [SciPy](https://www.scipy.org/), [pandas](https://pandas.pydata.org/), [pytmatrix](https://pypi.org/project/pytmatrix/), [MATLAB](https://www.mathworks.com/products/matlab.html), and [MATLAB engine for Python](https://www.mathworks.com/help/matlab/matlab_external/install-the-matlab-engine-for-python.html).
