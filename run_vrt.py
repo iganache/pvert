@@ -18,6 +18,9 @@ from VRTwrapper import VRTmodel
 from itertools import product
 
 def generate_dictlist(**kwargs):
+    """ Takes in a dictionary with multiple values per key and returns mutiple 
+    dictionaries each contaioning a permutation of key-value pairs """
+    
     keys = list(kwargs.keys())
     vals = list(kwargs.values())
     sweep = list(product(*vals))
@@ -29,11 +32,18 @@ def generate_dictlist(**kwargs):
         
 
 def main():
+    """ Contains all steps needed to determine backscatter and emission. 
+    The steps can also be run on command line."""
 
+    # # # STEP 1
+    # # # Create an instance of class VRTmodel with number of cores available as input
     vrtmodel = VRTmodel(nproc = 10)
     
-     # for different incidence angles
-        
+       
+    # # # STEP 2 
+    # # # Create a dictionary with values for all input model parameters
+    # # # multuiple values per key must be entered as a list
+    
     # # scene 1 - - fluffy with rough surface
     # # scattering mechanisms - surface
     dict_list = generate_dictlist(thetai=list(np.linspace(0.0, 80.0, 10)),
@@ -124,11 +134,22 @@ def main():
 
 
     
-    # # pass the scattering mechanisms as a list of lists 
+    # # # STEP 3
+    # # # Assign the types of scattering mechanisms to be modeled to the variable scattertypes as a list of lists
+    # # # Acceptable values include "surface", "susbsurface", "volume", "volume-subsurface"
+   
     scattertypes = [["surface"]]
-    output_df = vrtmodel.VRT_multiprocess(dict_list, scattertypes)
-    myplt = plotting()
     
+    
+    # # # STEP 4
+    # # # Run the model using VRT_multiprocess in a multi-core machine 
+    # # # Or run the model using VRT_singleprocess in a single-core machine
+    output_df = vrtmodel.VRT_multiprocess(dict_list, scattertypes)
+    
+    
+    # # # STEP 5
+    # # # Use the plotting class to make different types of scattering and emissivity plots
+    myplt = plotting()
     
     
     # # Plotting - scene1 - fluffy with ruff surface

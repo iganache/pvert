@@ -48,9 +48,6 @@ import matlab.engine
 from pytmatrix import tmatrix, orientation, scatter, refractive
 from pytmatrix.psd import PSDIntegrator, GammaPSD, ExponentialPSD, UnnormalizedGammaPSD
 
-# import tmatrix, orientation, scatter
-# from psd import PSDIntegrator, GammaPSD, ExponentialPSD
-
 import radar_inst as radar
 from RoughSurface import RoughSurface
 import FresnelCoefficients as Fresnel
@@ -58,17 +55,10 @@ import FresnelCoefficients as Fresnel
 
 class VRT:
     """
-    Vector Radiative Transfer (VRT) class.
     
-    A class containing all the attributes and methods for the VRT model. 
-    Each VRT run requires an instance of the class VRT.
+    A class containing all the attributes and methods for the surface scatter +
+    radiative transfer model. 
     
-    Attributes:
-    layers: 3 instances of the class Layerrs; one each for the atmosphere,
-            upper ground layer, and the substrate layer
-            
-    Returns:
-    VRT model object initialized with the input physical layer startigraphy.
     """
     
     
@@ -98,13 +88,13 @@ class VRT:
     def sigma2sigma0(self, sigma):
         
         """
-        Computes (unlogarithmic) radar cross section from backscatter coeffiecient
+        Converts radar cross section coefficient into log space. Returns values in dB
         
-        Args: 
-        sigma: An array or single value of radar cross-section
+        Parameters: 
+            sigma (float or list or array): An array or single value of radar cross-section
         
         Returns:
-        sigma0: An array or single value of backscatter coeffiecient
+            sigma0 (float or list or array): An array or single value of backscatter coeffiecient
         """
         try:
             if len(sigma) > 1:
@@ -119,13 +109,14 @@ class VRT:
     def sigma02sigma(self, sigma0):
         
         """
-        Computes (logarithmic) backscatter coeffiecient from radar cross section
+        Converts radar cross section coefficient from log to non-log space. 
+        Returns values in between 0-1 or >1 deoending on the target.
         
-        Args: 
-        sigma0: An array or single value of backscatter coeffiecient
+        Parameters:  
+            sigma0(float or list or array): An array or single value of backscatter coeffiecient
         
         Returns:
-        sigma: An array or single value of radar cross-section        
+            sigma (float or list or array): An array or single value of radar cross-section        
         """
         
         try:
@@ -138,11 +129,31 @@ class VRT:
         return sigma
     
     def Muellermod2sigma(self, M):
+        """
+        Converts modified 4x4 Mueller matrix into backscatter coefficient (NOT IN dB) in hh and vv 
+        
+        Parameters:  
+            M(2D array): A 4x4 array contaiing the modified Mueller matrix elements
+        
+        Returns:
+            shh(float): Radar backscatter coefficient in hh     
+            svv(float): Radar backscatter coefficient in vv        
+        """
         svv = 4 * np.pi * M[0,0]
         shh = 4 * np.pi * M[1,1]
         return svv, shh
         
     def Mueller2sigma(self, M):
+        """
+        Converts 4x4 Mueller matrix into backscatter coefficient (NOT IN dB) in hh and vv 
+        
+        Parameters:  
+            M(2D array): A 4x4 array contaiing the 16 Mueller matrix elements
+        
+        Returns:
+            shh(float): Radar backscatter coefficient in hh     
+            svv(float): Radar backscatter coefficient in vv      
+        """
         # # multiply by 4*pi*cos theta if needed
         # # division by a factor of 4 or 2?
         svv = 4 * np.pi * (M[0,0] + 2*M[0,1] + M[1,1]) 
@@ -150,6 +161,17 @@ class VRT:
         return svv, shh
     
     def sigma2Mueller(self, svv, shh, svh=0):
+        """
+        Converts backscatter coefficient (NOT IN dB) in hh and vv into a 4x4 Mueller matrix 
+        
+        Parameters:  
+            shh(float): Radar backscatter coefficient in hh     
+            svv(float): Radar backscatter coefficient in vv      
+            svh(float or None): Radar backscatter coefficient in vh  
+        
+        Returns:
+            M(2D array): A 4x4 array contaiing the 16 Mueller matrix elements        
+        """
         
         shv = - svh
         s11 = svv / 4 / np.pi
@@ -183,7 +205,17 @@ class VRT:
        
     
     def Mueller2cpr(self,M, poltype="linear"):
+        """
+        Converts 4x4 Mueller matrix into circular polarization ratio (CPR)
         
+        Parameters:  
+            M(2D array): A 4x4 array contaiing the 16 Mueller matrix elements
+            poltype (string or None): "linear" or "circular"
+        
+        Returns:
+            CPR(float): circular polarization ratio value         
+        """ 
+
         # # cpr = S1-S4 / S1+S4 = Iv+Ih-V / Iv+Ih+V
 
         if poltype == "linear":
@@ -196,6 +228,16 @@ class VRT:
         return cpr
     
     def Mueller2dlp(self,M, poltype="linear"):
+        """
+        Converts 4x4 Mueller matrix into degree of linear polarization (DLP)
+        
+        Parameters:  
+            M(2D array): A 4x4 array contaiing the 16 Mueller matrix elements
+            poltype (string or None): "linear" or "circular"
+        
+        Returns:
+            DLP(float): degree of linear polarization value         
+        """ 
         
         # # dlp = np.sqrt(S2**2 + S3**2) / S1 = Iv+Ih-V / Iv+Ih+V
     
@@ -209,11 +251,35 @@ class VRT:
         return dlp
     
     def sigma2dlp(self, svv, shh, svh=0, poltype = "circular"):
+        """
+        Converts backscatter coefficient (NOT IN dB) into circular polarization ratio (CPR)
+        
+        Parameters:  
+            shh(float): Radar backscatter coefficient in hh     
+            svv(float): Radar backscatter coefficient in vv      
+            svh(float or None): Radar backscatter coefficient in vh  
+            poltype (string or None): "linear" or "circular"
+        
+        Returns:
+            CPR(float): circular polarization ratio value         
+        """ 
         
         M = self.sigma2Mueller(svv, shh, svh)
         return self.Mueller2dlp(M, poltype)
     
     def sigma2cpr(self, svv, shh, svh):
+        """
+        Converts backscatter coefficient (NOT IN dB) into degree of linear polarization (DLP)
+        
+        Parameters:  
+            shh(float): Radar backscatter coefficient in hh     
+            svv(float): Radar backscatter coefficient in vv      
+            svh(float or None): Radar backscatter coefficient in vh  
+            poltype (string or None): "linear" or "circular"
+        
+        Returns:
+            DLP(float): degree of linear polarization value         
+        """ 
         cpr = (svv+shh+2*np.sqrt(svv*shh))/(svv+shh-2*np.sqrt(svv*shh))       
         return cpr       
         
@@ -222,12 +288,13 @@ class VRT:
         """
         Compute the angle of transmisssion (rad) from one medium to another.
         
-        Args:
-        l1: upper medium (instance of class RoughSurface)
-        l2: lower medium (instance of class RoughSurface)
+        Parameters:  
+            thetai (float): Incidence angle (in radians) 
+            eps1 (complex): complex permittivity of the upper medium
+            eps2 (complex): complex permittivity of the lower medium
         
         Returns:
-        Angle of transmission (in radians) from l1 to l2
+            thetai (float): Transmission angle (in radians)  into lower layer
         """
         mu1 = np.cos(thetai)
         n = np.sqrt(eps2/eps1)
@@ -245,13 +312,14 @@ class VRT:
         # # value of tvh calculated from smrt's fresnel.py
         # #  add T_coh *= transmittivity in v and h
         
-        Args:
-        l1: upper medium (instance of class Layers)
-        l2: lower medium (instance of class Layers)
-        theta_i: Incidence angle (in radians) 
+        Parameters:  
+            eps1 (complex): complex permittivity of the upper medium
+            eps2 (complex): complex permittivity of the lower medium
+            ks (float): electromagnetic roughness at the interface between layer 1 and layer 2
+            thetai_rad (float): Incidence angle (in radians) 
         
         Returns:
-        A 4x4 numpy array representing the coherent transmission matrix
+            T_coh (2D array): A 4x4 numpy array containing elements of the coherent transmission matrix
         
         """
 
@@ -291,16 +359,17 @@ class VRT:
         Compute the 4x4 real-valued reflection matrix 
         
         # # adapted from Fung 1994 + SMRT's iem_fung92.py - SMRT has an additional mu2/mu1 in tvh
-        # # value of rvh (r33, r43 and the like) calculated from smrt's fresnel.py
-        # #  add R_coh *= reflectivity in v and h
+        # # value of tvh calculated from smrt's fresnel.py
+        # #  add T_coh *= transmittivity in v and h
         
-        Args:
-        l1: upper medium (instance of class Layers)
-        l2: lower medium (instance of class Layers)
-        theta_i: Incidence angle (in radians) 
+        Parameters:  
+            eps1 (complex): complex permittivity of the upper medium
+            eps2 (complex): complex permittivity of the lower medium
+            ks (float): electromagnetic roughness at the interface between layer 1 and layer 2
+            thetai_rad (float): Incidence angle (in radians) 
         
         Returns:
-        A 4x4 numpy array representing the coherent reflection matrix
+            R_coh (2D array): A 4x4 numpy array containing elements of the coherent reflection matrix
         
         """
         
@@ -335,21 +404,19 @@ class VRT:
     def numscatterers_pervolume(self, psd, dist_type="Gamma", Nw=1, Lambda=1, mu=100, D_max = 0.06, D_med = 1):
         
         """ 
-        Compute the integrated total number concentration of particles in the upper layer.
+        Compute the integrated total number concentration of particles in the upper medium.
         
-        # # CURRENTLY DOESN'T WORK. NEEDS FIXING. 
-        
-        Args:
-        psd: particle size distribution (instance of pytmatrix.psd class)
-        dist_type: Type of distribution. Curren options:"Exponential" or Gamma"
-        nf: nf or Nw paramter use din the pytmatrix.psd class 
-        Lambda: shape paramter for exponential distribution
-        mu: paramter for gamma disstribution
-        D_max: maximum particle size/diamter
-        D_med: median particle size/diamter
+        Parameters:
+            psd (instance of pytmatrix.psd class): particle size distribution 
+            dist_type (string): Type of distribution. Curren options:"Exponential" or Gamma"
+            nf (int or None): nf or Nw paramter use din the pytmatrix.psd class 
+            Lambda (int or None): shape paramter for exponential distribution
+            mu (int or None): paramter for gamma disstribution
+            D_max (int or None): maximum particle size/diamter
+            D_med (int or None): median particle size/diamter
         
         Returns:
-        Total number concentration of particles per unit volume (?)
+            D_func_int (float): Total number concentration of particles per unit volume)
         
         """
         
@@ -376,12 +443,21 @@ class VRT:
         Make sure particle size and wavelength have the same unit
         Current units: meters
         
-        Args:
-        l1: upper layer (instance of class Layers) containing the scatterers
+        Parameters:
+            wavelength (float): incident wavelength in meter 
+            radius (float): radius of inclusions in meters 
+            rindex_tup (tuple): a tuple containing the real and imaginary part of the 
+                                refractive index of the background medium
+            volfrac_tup (tuple): a tuple containing the real and imaginary part of the 
+                                 refractive index of the inclusions 
+            axis_ratio (float): axis ratio of spheroidal inclusions 
+            alpha (float): orientation angle in radians
+            beta (float): orientation angle in radians
         
         Returs:
-        Instance of class pytmatrix.Scatterer initialized woth values from vrt.l1 
-        
+            scatterer: Instance of class pytmatrix.Scatterer initialized with values from input args
+            n0 (float): Total number concentration of particles per unit volume
+                    
         """
 
         ri = refractive.mg_refractive(rindex_tup, volfrac_tup)
@@ -417,15 +493,17 @@ class VRT:
         Calculates Phase matrix for randomly oriented spheroids averaged over orientation 
         (and size distribution hopefully) in the back scattering direction 
         
-        Args:
-        scatterer: instance of class pytmatrix.Scatterer 
-        theta_i: incidence angle in radians
-        phi_i: azimuth angle for incident direction in radians
-        theta_s: backscatter angle in radians 
-        phi_s: azimuth angle for incident direction in radians 
+        Parameters:
+            scatterer: instance of class pytmatrix.Scatterer 
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            n0 (float): Total number concentration of particles per unit volume
+            theta_i (float): incidence angle in radians
+            phi_i (float): azimuth angle for incident direction in radians
+            theta_s (float): backscatter angle in radians 
+            phi_s (float): azimuth angle for incident direction in radians 
         
         Returns:
-        A 4x4 phase matrix for the spheroidal inclusions/scatterers in the upper layer
+            P (2D array): A 4x4 phase matrix for the spheroidal inclusions/scatterers in the upper medium
         """
         geom = (np.rad2deg(theta_i), np.rad2deg(theta_s), np.rad2deg(phi_i), np.rad2deg(phi_s),
                 val["alpha"], val["beta"])
@@ -445,6 +523,24 @@ class VRT:
         return P
 
     def ExtinctionMatrixMish(self, scatterer, val, n0, theta, phi):
+        """
+        Calculates Extinction matrix for layer with randomly oriented spheroids averaged over orientation 
+        (and size distribution hopefully) in the forward scattering direction using Mischenko 2000. Pag x - equation xx
+        
+        Parameters:
+            scatterer: instance of class pytmatrix.Scatterer 
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            n0 (float): Total number concentration of particles per unit volume
+            theta (float): incidence angle in radians
+            phi (float): azimuth angle for incident direction in radians
+                    
+        Returns:
+            beta (1D array): An array containing the 4 eigenvalues of the extinction matrix K_e
+            E (2D array): A 2D array in which the columns are the 4 eigenvectors of the extinction matrix K_e
+            Einv (2D array): Inverse of the 2D array containg the 4 eigenvectors of the extinction matrix K_e
+        """
+        
+        
         geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
                val["alpha"], val["beta"])
         scatterer.set_geometry(geom)
@@ -485,20 +581,21 @@ class VRT:
         return beta, E, Einv
     
     def ExtinctionMatrix(self, scatterer, val, n0, theta, phi):
-        
         """
         Calculates Extinction matrix for layer with randomly oriented spheroids averaged over orientation 
         (and size distribution hopefully) in the forward scattering direction using Foldy's approximation
         
-        Args:
-        scatterer: instance of class pytmatrix.Scatterer 
-        theta: incidence angle in radians
-        phi: azimuth angle for incident direction in radians
-        
+        Parameters:
+            scatterer: instance of class pytmatrix.Scatterer 
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            n0 (float): Total number concentration of particles per unit volume
+            theta (float): incidence angle in radians
+            phi (float): azimuth angle for incident direction in radians
+                    
         Returns:
-        beta: eigenvalues of the extinction matrix
-        E: matrix whose columns are the eigenvectors of the extinction matrix
-        Einv: inverse of the matrix E
+            beta (1D array): An array containing the 4 eigenvalues of the extinction matrix K_e
+            E (2D array): A 2D array in which the columns are the 4 eigenvectors of the extinction matrix K_e
+            Einv (2D array): Inverse of the 2D array containg the 4 eigenvectors of the extinction matrix K_e
         """
 
         geom = (np.rad2deg(theta), np.rad2deg(theta), np.rad2deg(phi), np.rad2deg(phi),
@@ -527,11 +624,11 @@ class VRT:
         """
         Calculate the eigenvalues for the  Extinction matrix 
         
-        Args:
-        M: A 2x2 matrix computed from the scattering matrix
+        Parameters:
+            M (2D array): A 2x2 matrix computed from the scattering matrix
         
         Returns:
-        beta: A numpy array of eigenvalues for the extinction matrix.
+            beta (1D array): A numpy array of eigenvalues for the extinction matrix.
         """
         
         r = np.sqrt((M[0,0] - M[1,1])**2 + 4*M[1,0]*M[0,1])
@@ -546,11 +643,11 @@ class VRT:
         """
         Calculate the eigenvectors for the  Extinction matrix 
         
-        Args:
-        M: A 2x2 matrix computed from the scattering matrix
+        Parameters:
+            M (2D array): A 2x2 matrix computed from the scattering matrix
         
         Returns:
-        E: A numpy array the columns of which are the eigenvectors of the extinction matrix.
+            E (1D array): A numpy array the columns of which are the eigenvectors of the extinction matrix.
         """
         
         # # b1, b2, Mhv, Mvh should be 0 for high frequencies and non-polarizing components
@@ -567,6 +664,18 @@ class VRT:
            
    
     def D(self, beta, theta, d, kab = 0):
+        """
+        Calculate a diagonal matrix in which the diagonal elements correspond to the
+        extincction cross section calculated using the eigen values of the extinction matrix
+        
+        Parameters:
+            beta (1D array): Eigen values of the extinction matrix
+            theta (float): Incidence angle in radians
+            d (float): thickness of the layer containing the inclusions
+        
+        Returns:
+            D (2D array): A diagonal matrix comprising extinction cross sections.
+        """
         D = np.diag(np.exp((beta+kab) * - d/ np.cos(theta)))
         return D
 
@@ -650,6 +759,19 @@ class VRT:
         return matrix_int
     
     def integrate(self, beta, theta, limits=[0.,0.], depth=0., kab=0.):
+        """
+        Integrates extinction matrix elements with resoect to 'd' / thickness.
+        
+        Parameters:
+            beta (1D array): Eigen values of the extinction matrix
+            theta (float): Incidence angle in radians
+            limits (list): the lower and upper limits for integration
+            depth (float): thickness of the layer containing the inclusions
+            kab (float): absorption cross section of background medium
+        
+        Returns:
+            D (2D array): A diagonal matrix with elements that are integrated in z direction 
+        """
         n = len(beta)
         D = np.zeros((n,n))
         
@@ -665,12 +787,19 @@ class VRT:
         Compute the real-valued 4x4 Mueller matrix for scattering 
         from the first layer - substrate interface.
         
-        Args:
-        scat: instance of class pytmatrix.Scatterer 
-        poltype: polarization type "lin" for linear or "circ" for circular
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            thetai_rad (float): Incidence angle in radians
+            thetat_rad (float): Transmission angle in radians
+            k_a_medium (float): absorption cross section of background medium
+            T01_coh (2D array): Transmission matrix describing coherent transmission from medium 0 to medium 1
+            T10_coh (2D array): Transmission matrix describing coherent transmission from medium 1 to medium 0 
+            R12 (2D array): Reflection matrix describing coherent reflection at the boundary between medium 1 and medium 2  
+            scat: instance of class pytmatrix.Scatterer 
+            n0 (int or none): number of scatterers per unit volume
         
         Returns:
-        M_bed: A 4x4 real-valued Mueller matrix
+            M_bed (2D array): A 4x4 real-valued Mueller matrix describing total backscatterin from the bed
         """
         
         # # keeping only the term with the the two coherent transmission matrice (term 2 of C2 in Fa et al. 2011)
@@ -687,12 +816,19 @@ class VRT:
         Compute the real-valued 4x4 Mueller matrix for scattering from the 
         inclusions in the first layer (2) and first layer - substrate interface (1).
         
-        Args:
-        scat: instance of class pytmatrix.Scatterer 
-        poltype: polarization type "lin" for linear or "circ" for circular
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            thetai_rad (float): Incidence angle in radians
+            thetat_rad (float): Transmission angle in radians
+            k_a_medium (float): absorption cross section of background medium
+            T01_coh (2D array): Transmission matrix describing coherent transmission from medium 0 to medium 1
+            T10_coh (2D array): Transmission matrix describing coherent transmission from medium 1 to medium 0 
+            R12 (2D array): Reflection matrix describing coherent reflection at the boundary between medium 1 and medium 2  
+            scat: instance of class pytmatrix.Scatterer 
+            n0 (int or none): number of scatterers per unit volume
         
         Returns:
-        M_bed: A 4x4 real-valued Mueller matrix
+            M_bedvol (2D array): A 4x4 real-valued Mueller matrix
         """
         
         # # Extinction due to scatterers
@@ -728,12 +864,19 @@ class VRT:
         Compute the real-valued 4x4 Mueller matrix for scattering from the 
         inclusions in the first layer (1) and first layer - substrate interface (2).
         
-        Args:
-        scat: instance of class pytmatrix.Scatterer 
-        poltype: polarization type "lin" for linear or "circ" for circular
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            thetai_rad (float): Incidence angle in radians
+            thetat_rad (float): Transmission angle in radians
+            k_a_medium (float): absorption cross section of background medium
+            T01_coh (2D array): Transmission matrix describing coherent transmission from medium 0 to medium 1
+            T10_coh (2D array): Transmission matrix describing coherent transmission from medium 1 to medium 0 
+            R12 (2D array): Reflection matrix describing coherent reflection at the boundary between medium 1 and medium 2  
+            scat: instance of class pytmatrix.Scatterer 
+            n0 (int or none): number of scatterers per unit volume
         
         Returns:
-        M_bed: A 4x4 real-valued Mueller matrix
+            M_volbed (2D array): A 4x4 real-valued Mueller matrix
         """
         # # Extinction due to scatterers
         beta_plus, E_plus, Einv_plus = self.ExtinctionMatrix(scat, val, n0, thetat_rad, self.phi_s)
@@ -768,12 +911,18 @@ class VRT:
         Compute the real-valued 4x4 Mueller matrix for scattering 
         from the inclusions in the first layer.
         
-        Args:
-        scat: instance of class pytmatrix.Scatterer 
-        poltype: polarization type "lin" for linear or "circ" for circular
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            thetai_rad (float): Incidence angle in radians
+            thetat_rad (float): Transmission angle in radians
+            k_a_medium (float): absorption cross section of background medium
+            T01_coh (2D array): Transmission matrix describing coherent transmission from medium 0 to medium 1
+            T10_coh (2D array): Transmission matrix describing coherent transmission from medium 1 to medium 0 
+            scat: instance of class pytmatrix.Scatterer 
+            n0 (int or none): number of scatterers per unit volume
         
         Returns:
-        M_bed: A 4x4 real-valued Mueller matrix
+            M_vol (2D array): A 4x4 real-valued Mueller matrix describing scattering from discrete heterogeneities
         """
         # # Extinction due to scatterers
         beta_minus, E_minus, Einv_minus = self.ExtinctionMatrix(scat, val, n0, np.pi - thetat_rad, self.phi_i)
@@ -819,13 +968,17 @@ class VRT:
         Compute the H and V rough surface emissivity using rough surface 
         reflectivity computed by the Improved Integral Equation Method.
         
-        Args:
-        l1: upper medium (instance of class Layers)
-        l2: lower medium (instance of class Layers)
+        Parameters:
+            thetai (float): Incidence angle (in radians) 
+            eps1 (complex): complex permittivity of the upper medium
+            eps2 (complex): complex permittivity of the lower medium
+            s (float): RMS height for the interface between medium 1 and medium 2
+            cl (float): correlation length for the interface between medium 1 and medium 2
+            
         
         Returns:
-        e_v: Rough surface emissivity in V polarization
-        e_h: Rough surface emissivity in H polarization
+            e_v: Rough surface emissivity in V polarization
+            e_h: Rough surface emissivity in H polarization
         """
         
         try:
@@ -852,6 +1005,26 @@ class VRT:
         return e_v, e_h
     
     def surfaceBSC(self, val, crosspol=False, emission = False):
+        """
+        Compute backscatter, emissivity, and polarimetric quantities 
+        for surface scattering.
+        
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            crosspol (boolean; default False): set to True for calculating cross-polarized backscatter coefficients
+            emission (boolean; default False): set to True for calculating emissivity
+
+        
+        Returns:
+            svv (float): VV-polarized backscatter
+            svv0 (float): VV-polarized backscatter in dB
+            shh (float): HH-polarized backscatter
+            shh0 (float): HH-polarized backscatter in dB
+            cpr (float): circular polarization ratio 
+            dlp (float): degree of linear polarization
+            ev (float): V-polarized emissivity 
+            eh (float): H-polarized emissivity
+        """
         
         self.setGeometricOptics()
 
@@ -898,6 +1071,26 @@ class VRT:
     
     
     def subsurfaceBSC(self, val, crosspol=True, emission = True):
+        """
+        Compute backscatter, emissivity, and polarimetric quantities 
+        for subsurface scattering.
+        
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            crosspol (boolean; default False): set to True for calculating cross-polarized backscatter coefficients
+            emission (boolean; default False): set to True for calculating emissivity
+
+        
+        Returns:
+            svv (float): VV-polarized backscatter
+            svv0 (float): VV-polarized backscatter in dB
+            shh (float): HH-polarized backscatter
+            shh0 (float): HH-polarized backscatter in dB
+            cpr (float): circular polarization ratio 
+            dlp (float): degree of linear polarization
+            ev (float): V-polarized emissivity 
+            eh (float): H-polarized emissivity
+        """
         self.setGeometricOptics()
         
         thetai_rad =  np.deg2rad(val["thetai"])  
@@ -954,6 +1147,27 @@ class VRT:
     
     
     def volumeBSC(self, val, crosspol=True, emission = True):
+        """
+        Compute backscatter, emissivity, and polarimetric quantities 
+        for volume scattering.
+        
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            crosspol (boolean; default False): set to True for calculating cross-polarized backscatter coefficients
+            emission (boolean; default False): set to True for calculating emissivity
+
+        
+        Returns:
+            svv (float): VV-polarized backscatter
+            svv0 (float): VV-polarized backscatter in dB
+            shh (float): HH-polarized backscatter
+            shh0 (float): HH-polarized backscatter in dB
+            cpr (float): circular polarization ratio 
+            dlp (float): degree of linear polarization
+            ev (float): V-polarized emissivity 
+            eh (float): H-polarized emissivity
+        """
+        
         self.setGeometricOptics()
         
         thetai_rad = np.deg2rad(val["thetai"])
@@ -994,6 +1208,26 @@ class VRT:
         return svv, svv0, shh, shh0, cpr, dlp, ev, eh, ssa_h, ssa_v
     
     def volumesubBSC(self, val, crosspol=False, emission = False):
+        """
+        Compute backscatter, emissivity, and polarimetric quantities 
+        for volume-subsurface scattering.
+        
+        Parameters:
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            crosspol (boolean; default False): set to True for calculating cross-polarized backscatter coefficients
+            emission (boolean; default False): set to True for calculating emissivity
+
+        
+        Returns:
+            svv (float): VV-polarized backscatter
+            svv0 (float): VV-polarized backscatter in dB
+            shh (float): HH-polarized backscatter
+            shh0 (float): HH-polarized backscatter in dB
+            cpr (float): circular polarization ratio 
+            dlp (float): degree of linear polarization
+            ev (float): V-polarized emissivity 
+            eh (float): H-polarized emissivity
+        """
         
         self.setGeometricOptics()
         
@@ -1040,16 +1274,15 @@ class VRT:
         """
         Primary function that executes the 1st order VRT scattering model
         
-        Returns: A list of sigma0_vv, sigma0_hh, cpr, e_v, e_h
-        sigma0vv: A 5x1 array containing the backscatter coefficient associated with 
-                (0) Total BS, (1) Surface BS, (2) Subsurface BS, (3) Volume BS, and
-                (4) Voume-subsurface BS
-        sigma0hh: A 5x1 array containing the backscatter coefficient associated with 
-                the same mechanisms as sigma0vv
-        cpr:  5x1 array containing the circular polarization ratio associated with 
-              the same mechanisms as sigma0vv
-        e_v: Emissivity in V polarization
-        e_h: Emissivity in H polarization
+        Parameters: 
+            val_dict (dict): dictionary containing input parameters that was passed to the VRT_module class
+            scattertype (string): Takes one of the following values
+                                  "surface", "subsurface", "volume", "volume-subsurface"
+            
+        Returns:
+            values (dict): A dictionary comprising all the backscatter coefficients, 
+                           emissivity values, and polarimetric quantities
+            
         """
         # # output placeholders
         ks1 = self.k * val_dict["s1"]
@@ -1143,14 +1376,23 @@ class VRT:
 
     def RT0_emission(self, scattertype, val, thetai_rad, thetat_rad = 0, k_a_medium = 0, scatterer = None, n0 = 0):
         """
-        Primary function that executes the oth order VRT emission model
+        Primary function that computes emissivity from surface, subsurface, and volume inclusions 
         
-        Args:
-        scat: instance of class pytmatrix.Scatterer 
+        Parameters:
+            scattertype (string): Takes one of the following values
+                                  "surface", "subsurface", "volume", "volume-subsurface"
+            val (dict): dictionary containing input parameters that was passed to the VRT_module class
+            thetai_rad (float): Incidence angle in radians
+            thetat_rad (float or None): Transmission angle in radians
+            k_a_medium (float or None): absorption cross section of background medium
+            scatterer (scatterer or None): instance of class pytmatrix.Scatterer 
+            n0 (int or none): number of scatterers per unit volume 
         
         Returns:
-        e_v: Emissivity in V polarization
-        e_h: Emissivity in H polarization
+            e_v (float): V-polarized emissivity 
+            e_h (float): H-polarized emissivity
+            ssa_v (float): Single scattering albedo in V-polarization
+            ssa_h (float): Single scattering albedo in H-polarization
         """        
 
         e01_v, e01_h = self.I2EM_emissivity(val["thetai"], val["atm_eps"], complex(val["eps1r"],val["eps1i"]), val["s1"], val["cl1"])

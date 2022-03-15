@@ -106,7 +106,8 @@ class plotting:
                 leg = []
                 for k in key:
                     leg.append(round(k,2))
-                ax = grp.plot(ax=ax, kind='line', x=xcol, y=ycol[num], c=self.colors[i], linestyle = self.linestyles[j], linewidth = 3, label=legend+" = "+str(leg))
+#                 ax = grp.plot(ax=ax, kind='line', x=xcol, y=ycol[num], c=self.colors[i], linestyle = self.linestyles[j], linewidth = 3, label=legend+" = "+str(leg))
+                ax = grp.plot(ax=ax, kind='line', x=xcol, y=ycol[num], c=self.colors[i], linestyle = self.linestyles[j], linewidth = 3, legend=False)
                 
                 if m!=0:
                     if (j+1)%m == 0:
@@ -119,7 +120,7 @@ class plotting:
                 if j >= m: j=0
             
                 
-        ax.legend(loc = 3)
+#         ax.legend(loc = 3)
         if xlabel != None: ax.set_xlabel(xlabel)
         if ylabel != None: ax.set_ylabel(ylabel)
         # # setting degree symbol
@@ -144,9 +145,9 @@ class plotting:
             m = 0
             for name, grp in df_grp:
                 if name in ["Irnini", "Anala", "Didilia", "Pavlova"]:
-                    ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.9, mec = inc_ecolors, mfc=inc_fcolors, markersize = 10, fillstyle=None, ecolor = inc_fcolors, elinewidth = 2.5, capsize = 0)
+                    ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.9, mec = inc_ecolors, mfc=inc_fcolors, markersize = 18, fillstyle=None, ecolor = inc_fcolors, elinewidth = 2.5, capsize = 0)
                 else:
-                    ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.7, mec = 'k', mfc=ecolors[m], markersize = 10, ecolor = "darkgray", elinewidth = 2.5, capsize = 0)
+                    ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.7, mec = 'k', mfc=ecolors[m], markersize = 18, ecolor = "darkgray", elinewidth = 2.5, capsize = 0)
                 m+=1
                 
                 
@@ -331,9 +332,10 @@ class plotting:
     def plotCSVinc(self, infile, xcol, ycol, groupbycols, xlabel=None, ylabel=None, legend = "", data = None, xlim = None, ylim = None, outfile=None):
         # # read csv as pandas df
         df = pd.read_csv(infile, sep=',', header=0)
-        new_df = df[(df["eps1r"] == 10) & (df["s1"] == 0.04)]
+#         new_df = df[df["eps2i"] == .01]
+#         new_df = df[(df["eps1r"] == 10) & (df["s1"] == 0.04)]
         
-        self.incplot(new_df, xcol, ycol, groupbycols, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
+        self.incplot(df, xcol, ycol, groupbycols, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
                                                        
     def plotCSVmulti(self, infile, plottype, xcol, ycol, groupbycols = None, xlabel=None, ylabel=None, legend = "", data = None, xlim = None, ylim = None, outfile=None):
         # # read csv as pandas df
@@ -417,13 +419,13 @@ class plotting:
             'sans-serif':'Arial',
             'size'   : 35}
         plt.rc('font', **font)
-        plt.rc('axes', titlesize=35)     # fontsize of the axes title
-        plt.rc('axes', labelsize=35)    # fontsize of the x and y labels
-        plt.rc('xtick', labelsize=30)    # fontsize of the tick labels
-        plt.rc('ytick', labelsize=30)    # fontsize of the tick labels
-        plt.rc('legend', fontsize=30)    # legend fontsize
-        plt.rc('legend', title_fontsize=30)    # legend fontsize
-        plt.rc('figure', titlesize=30)  # fontsize of the figure title
+        plt.rc('axes', titlesize=40)     # fontsize of the axes title
+        plt.rc('axes', labelsize=40)    # fontsize of the x and y labels
+        plt.rc('xtick', labelsize=35)    # fontsize of the tick labels
+        plt.rc('ytick', labelsize=35)    # fontsize of the tick labels
+        plt.rc('legend', fontsize=35)    # legend fontsize
+        plt.rc('legend', title_fontsize=35)    # legend fontsize
+        plt.rc('figure', titlesize=35)  # fontsize of the figure title
 
     
     
