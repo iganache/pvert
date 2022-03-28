@@ -9,7 +9,7 @@ myplt = plotting()
 # # Case 1
 
 
-myplt.plotCSVinc("ResultPlots/Case1/surfaceBSC_Jan28.csv", 'thetai', ['shh_sur'], ['eps1r', 'ks1'], xlabel="Incidence Angle", ylabel='$\sigma_{HH}$ (dB)', data = "Mag_sigma.csv", xlim = [5, 80],  ylim = [-30, 5], legend= '', outfile = "ResultPlots/Case1/BSCvsInc_sur_Mar3.png")
+# myplt.plotCSVinc("ResultPlots/Case1/surfaceBSC_Jan28.csv", 'thetai', ['shh_sur'], ['eps1r', 'ks1'], xlabel="Incidence Angle", ylabel='$\sigma_{HH}$ (dB)', data = "Mag_sigma.csv", xlim = [5, 80],  ylim = [-30, 5], legend= '', outfile = "ResultPlots/Case1/BSCvsInc_sur_Mar3.png")
 # myplt.plotCSVinc("ResultPlots/Case1/surfaceBSC_Jan28.csv", 'thetai', ['eh_sur'], ['eps1r', 'ks1'], xlabel="Incidence Angle", ylabel='$e_{H}$',  data = "Mag_emis.csv", xlim = [5, 80],  ylim = [0.3, 1], legend= '', outfile = "ResultPlots/Case1/EmisvsInc_sur_Mar3.png")
 
 
@@ -32,5 +32,7 @@ myplt.plotCSVinc("ResultPlots/Case1/surfaceBSC_Jan28.csv", 'thetai', ['shh_sur']
 # myplt.plotCSVinc("ResultPlots/Case1/sce1-eps1-27-roughks2.csv", 'thetai', ['eh_sur'], ['eps1r', 'ks1'], xlabel="Incidence Angle", ylabel='$e_{H}$',  data = "Mag_emis.csv", xlim = [1, 80], ylim = [0.2, 1], legend= '', outfile = "empty_emis")
 
 
+# # mutliple contribution plots
+myplt.plotCSVmulti("ResultPlots/Case3/midrough/sce3-equal-new.csv", "BSC", 'thetai', ['shh_total', 'shh_sur', 'shh_sub'], groupbycols = ['d', 'ks2'], xlabel="Incidence Angle", ylabel='$\sigma_{HH}$ (dB)', legend = "", data = "Mag_sigma.csv", xlim = [1, 80], ylim = [-60, 10], outfile="ResultPlots/Case3/midrough/sce3-equal-ferro.png")
 
 # myplt.penetrtationdeth(wavelength = 0.126, epsr = 2, epsi = np.array([0.005, .05]))

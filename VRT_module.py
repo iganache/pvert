@@ -11,6 +11,8 @@ Created on Fri Feb 12 15:35:03 2021
 """
 Created on Thu Oct  8 21:34:38 2020
 
+Quick lookups
+
 Stokes matrix for different polarizations:
 H - [1 1 0 0]
 V - [1 -1 0 0]
@@ -24,13 +26,8 @@ if poltype == "lin":
 elif poltype == "circ":
  B = 0.5 * np.matrix([[0, 1.0, 1j, 0.], [1., 0., 0., 1.], [1., 0., 0., -1.], [0, 1.0, -1j, 0.]])
     
-Radar CS backscatter coefficient: 
-Bruce's white paper says the RCS is converted to BSC during SAR processing; then scaled to Muhleman value.
-So the Magellan BSC should be comparable to sigma0
-
 Multiple scattering can be ignored for volfrac < 0.1 in a lossy medium (Fa 2011, Tsang 1985, Jun 1984)
 
-Small volfrac combined with large rock size would produce the same effect as large volfrac of small rocks
 
 @author: Indujaa
 """

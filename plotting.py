@@ -181,6 +181,7 @@ class plotting:
     def multiscatterplot(self, df, xcol, ycol, xlabel=None, ylabel=None, legend = "", data = None, xlim = None, ylim = None, outfile=None):
         self.setPlotStyle()
         fig, ax = plt.subplots(nrows=1, ncols=1)
+
     
         line_dict = {"shh_total": "solid", "shh_sur": (0, (5, 10)), "shh_sub": "dashed", "shh_vol": "dotted", "shh_volsub":"dashdot"}
         color_dict = {"shh_total": "#000000", "shh_sur": "#696969", "shh_sub": "#808080", "shh_vol": "#A9A9A9", "shh_volsub":"#D3D3D3"}
@@ -193,7 +194,7 @@ class plotting:
 
 #         ax = df.plot(x=xcol, y=ycol, kind = 'line', linewidth = 3)
         for num in range(n_ycols):
-            df.plot(x=xcol, y=ycol[num], kind='line', c=color_dict[ycol[num]], linestyle = line_dict[ycol[num]], linewidth = 3, ax=ax)
+            df.plot(x=xcol, y=ycol[num], kind='line', c=color_dict[ycol[num]], linestyle = line_dict[ycol[num]], linewidth = 3, ax=ax, label=label_dict[ycol[num]])
 
         ax.legend(loc = 3)
         if xlabel != None: ax.set_xlabel(xlabel)
@@ -211,11 +212,18 @@ class plotting:
 #             thi, mean, std = self.Magfromcsv(data)
             df_grp = self.Magfromcsv(data)
 #             ecolors = ['#CC6677', '#332288', '#DDCC77', '#117733', '#882255', '#44AA99', '#999933', '#AA4499']
-            ecolors = ["#252525",  "#636363", "#969696",  "#cccccc", "#f7f7f7"]
-            emarks = ['o', 'v', 's', 'd', '^', 'h', '*'] 
+#             ecolors = ["#252525",  "#636363", "#969696",  "#cccccc", "#f7f7f7", "#f7f7f7"]
+            inc_ecolors = "#2e2249"
+            inc_fcolors = "#43385b"
+            ecolors = ["#767676", "#636363", "#4f4f4f", "#3b3b3b", "#282828", "#141414"]
+            emarks = ['o','^', 'v', 'd', 's',  'h', '*'] 
+        
             m = 0
             for name, grp in df_grp:
-                ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.7, mec = 'k', mfc=ecolors[m], markersize = 8, ecolor = ecolors[m], elinewidth = 2.5, capsize = 0)
+                if name in ["Irnini", "Anala", "Didilia", "Pavlova"]:
+                    ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.9, mec = inc_ecolors, mfc=inc_fcolors, markersize = 18, fillstyle=None, ecolor = inc_fcolors, elinewidth = 2.5, capsize = 0)
+                else:
+                    ax.errorbar(grp['thetai'], grp['mean'], grp['rms'], label = name, fmt = emarks[m], alpha=0.7, mec = 'k', mfc=ecolors[m], markersize = 18, ecolor = "darkgray", elinewidth = 2.5, capsize = 0)
                 m+=1
                 
                 
@@ -342,15 +350,17 @@ class plotting:
         df = pd.read_csv(infile, sep=',', header=0)
         
         # # make conditional columns
-        new_df = df[(df["d"] == 0.5) & (df["s2"] == 0.01)]
-        print(new_df)
+        new_df = df[(df["d"] == 0.126) & (df["s2"] == 0.04)]
+#         new_df = df[df["d"] == .126]
+#         new_df = new_df[new_df["s2"] == .026]
+        print(new_df["s2"])
         
         if plottype == "BSC":
             self.multiscatterplot(new_df, xcol, ycol, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
-        if plottype == "CPR":
-            self.multicprplot(new_df, xcol, ycol, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
-        if plottype == "DLP":
-            self.multidlpplot(new_df, xcol, ycol, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
+#         if plottype == "CPR":
+#             self.multicprplot(new_df, xcol, ycol, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
+#         if plottype == "DLP":
+#             self.multidlpplot(new_df, xcol, ycol, xlabel=xlabel, ylabel=ylabel, legend = legend, data = data, xlim = xlim, ylim = ylim, outfile=outfile)
         
     def contourplot(self, df, xcol, ycol, zcol, xlabel=None, ylabel=None, cbarlegend = "", data = None, outfile=None):
         
